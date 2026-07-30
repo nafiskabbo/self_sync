@@ -78,5 +78,5 @@ Documented in `.env.example` and README.
 
 1. Create a Supabase project and run the migration SQL.
 2. Set env vars on Vercel.
-3. Deploy. For minute-level prayer pushes: Vercel Pro cron, or an external cron (e.g. cron-job.org) calling the cron URL every minute with `CRON_SECRET`.
+3. Deploy. Prayer pushes need every-minute hits — use an external cron (e.g. cron-job.org) with `CRON_SECRET`, or Vercel Pro + `* * * * *` in `vercel.json` (Hobby cannot).
 4. Open the site on your phone, install as PWA, enable notifications in Settings, set location.

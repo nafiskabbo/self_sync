@@ -80,16 +80,24 @@ npm run verify
 2. Add the same env vars
 3. Deploy
 
-`vercel.json` schedules cron for `/api/cron/prayer-notify` every minute.
+Prayer pushes need a **once-per-minute** hit to `/api/cron/prayer-notify`. Vercel Hobby only allows **daily** crons, so this repo does not define a Vercel cron (that would fail deploy).
 
-**Hobby plan:** Vercel only runs crons once per day. For accurate prayer notifications, either upgrade to Pro or point an external cron (e.g. [cron-job.org](https://cron-job.org)) at:
+**Options:**
+1. **Hobby (recommended for free):** point an external cron (e.g. [cron-job.org](https://cron-job.org)) at the URL below, every minute.
+2. **Pro:** add this to `vercel.json` and redeploy:
+
+```json
+{
+  "crons": [{ "path": "/api/cron/prayer-notify", "schedule": "* * * * *" }]
+}
+```
+
+External cron request:
 
 ```text
 GET https://YOUR_DOMAIN/api/cron/prayer-notify
 Authorization: Bearer YOUR_CRON_SECRET
 ```
-
-every minute.
 
 ## Prayer notifications on iOS and Android
 
