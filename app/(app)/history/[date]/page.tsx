@@ -1,4 +1,4 @@
-import { DailyTracker, TRACKER_ICONS } from "@/components/daily-tracker";
+import { DailyTracker } from "@/components/daily-tracker";
 import Link from "next/link";
 import { getDailyEntry, getSettings } from "@/lib/data";
 import { DEFAULT_POINTS_PER_ITEM, PRAYERS } from "@/lib/types";
@@ -44,7 +44,6 @@ export default async function HistoryDayPage({
             field: p,
             label: prayerDisplayName(p),
             points: pts[p],
-            icon: TRACKER_ICONS[p],
           })),
           {
             field: "roja" as const,
@@ -52,7 +51,6 @@ export default async function HistoryDayPage({
             hint: "Adds points only — never required",
             points: pts.roja,
             tone: "optional" as const,
-            icon: TRACKER_ICONS.roja,
           },
         ]}
         growthItems={[
@@ -60,14 +58,12 @@ export default async function HistoryDayPage({
             field: "new_things_learnt",
             label: "New things learnt",
             points: pts.new_things_learnt,
-            icon: TRACKER_ICONS.new_things_learnt,
           },
           {
             field: "diary_logged",
             label: "Wrote diary",
             hint: "Logged times",
             points: pts.diary_logged,
-            icon: TRACKER_ICONS.diary_logged,
           },
         ]}
         observeItems={[
@@ -76,28 +72,24 @@ export default async function HistoryDayPage({
             label: "Watched YT / videos while eating",
             points: pts.watched_videos_eating,
             tone: "observe",
-            icon: TRACKER_ICONS.watched_videos_eating,
           },
           {
             field: "backbite",
             label: "Backbite",
             points: pts.backbite,
             tone: "observe",
-            icon: TRACKER_ICONS.backbite,
           },
           {
             field: "lie",
             label: "Lie",
             points: pts.lie,
             tone: "observe",
-            icon: TRACKER_ICONS.lie,
           },
           {
             field: "mistakes",
             label: "Mistakes / other mistakes",
             points: pts.mistakes,
             tone: "observe",
-            icon: TRACKER_ICONS.mistakes,
           },
         ]}
         practiceItems={[
@@ -105,19 +97,16 @@ export default async function HistoryDayPage({
             field: "arabic_class",
             label: "Arabic learning class",
             points: pts.arabic_class,
-            icon: TRACKER_ICONS.arabic_class,
           },
           {
             field: "public_speaking",
             label: "Public speaking",
             points: pts.public_speaking,
-            icon: TRACKER_ICONS.public_speaking,
           },
           {
             field: "brainstorming",
             label: "Brainstorming something",
             points: pts.brainstorming,
-            icon: TRACKER_ICONS.brainstorming,
           },
         ]}
       />

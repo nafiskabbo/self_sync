@@ -11,21 +11,33 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
-import { syncToCloud } from "@/lib/actions";
 import {
+  clearDailyHistory,
+  syncToCloud,
+} from "@/lib/actions";
+import {
+  clearAllLocalEntries,
   clearDirty,
   getDirty,
   getLastSync,
   getLocalEntry,
   getLocalSettings,
   isDirty,
+  listLocalEntryDates,
   mergeEntry,
   mergeSettings,
+  removeLocalEntries,
   setLastSync,
   setLocalEntry,
   setLocalSettings,
 } from "@/lib/local-store";
-import type { DailyEntry, Settings } from "@/lib/types";
+import { formatDateOnly, parseDateOnly } from "@/lib/points";
+import {
+  emptyDailyEntry,
+  type ClearHistoryScope,
+  type DailyEntry,
+  type Settings,
+} from "@/lib/types";
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -35,10 +47,14 @@ type SyncContextValue = {
   syncing: boolean;
   lastSync: string | null;
   status: string | null;
+  entryRevision: number;
   syncNow: () => void;
   saveEntryLocal: (entry: DailyEntry) => void;
   saveSettingsLocal: (settings: Settings) => void;
   getEntry: (date: string, serverFallback: DailyEntry) => DailyEntry;
+  clearHistory: (
+    scope: ClearHistoryScope,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 const SyncContext = createContext<SyncContextValue | null>(null);
@@ -49,6 +65,16 @@ function initSettings(server: Settings): Settings {
   const merged = mergeSettings(server, local);
   if (!local) setLocalSettings(server, false);
   return merged;
+}
+
+function lastNDates(today: string, n: number): string[] {
+  const dates: string[] = [];
+  const cursor = parseDateOnly(today);
+  for (let i = 0; i < n; i += 1) {
+    dates.push(formatDateOnly(cursor));
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return dates;
 }
 
 export function SyncProvider({
@@ -66,6 +92,7 @@ export function SyncProvider({
     typeof window === "undefined" ? null : getLastSync(),
   );
   const [status, setStatus] = useState<string | null>(null);
+  const [entryRevision, setEntryRevision] = useState(0);
   const [syncing, startSync] = useTransition();
   const serverStampRef = useRef(initialSettings.updated_at);
   const settingsRef = useRef(settings);
@@ -155,6 +182,58 @@ export function SyncProvider({
     [],
   );
 
+  const clearHistory = useCallback(
+    async (scope: ClearHistoryScope) => {
+      const today = (() => {
+        try {
+          return new Intl.DateTimeFormat("en-CA", {
+            timeZone: settingsRef.current.timezone,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date());
+        } catch {
+          return formatDateOnly(new Date());
+        }
+      })();
+
+      const dates =
+        scope === "all"
+          ? listLocalEntryDates()
+          : scope === "today"
+            ? [today]
+            : lastNDates(today, 7);
+
+      if (scope === "all") {
+        clearAllLocalEntries();
+      } else {
+        removeLocalEntries(dates);
+        // Seed empty local so open trackers remount cleanly without cloud rehydrate
+        for (const date of dates) {
+          setLocalEntry(emptyDailyEntry(date), false);
+        }
+      }
+
+      setDirty(isDirty());
+      setEntryRevision((n) => n + 1);
+      setStatus(
+        scope === "today"
+          ? "Cleared today"
+          : scope === "last7"
+            ? "Cleared last 7 days"
+            : "Cleared all history",
+      );
+
+      const result = await clearDailyHistory(scope, today);
+      if (!result.ok) {
+        setStatus(result.error);
+        return { ok: false as const, error: result.error };
+      }
+      return { ok: true as const };
+    },
+    [],
+  );
+
   const value = useMemo(
     () => ({
       settings,
@@ -162,10 +241,12 @@ export function SyncProvider({
       syncing,
       lastSync,
       status,
+      entryRevision,
       syncNow,
       saveEntryLocal,
       saveSettingsLocal,
       getEntry,
+      clearHistory,
     }),
     [
       settings,
@@ -173,10 +254,12 @@ export function SyncProvider({
       syncing,
       lastSync,
       status,
+      entryRevision,
       syncNow,
       saveEntryLocal,
       saveSettingsLocal,
       getEntry,
+      clearHistory,
     ],
   );
 

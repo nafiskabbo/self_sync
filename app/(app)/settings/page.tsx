@@ -4,14 +4,13 @@ export const dynamic = "force-dynamic";
 
 export default function SettingsPage() {
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl text-[var(--moss-deep)]">
+    <div className="space-y-4 sm:space-y-5">
+      <header className="space-y-0.5">
+        <h1 className="font-[family-name:var(--font-display)] text-2xl text-[var(--moss-deep)] sm:text-3xl">
           Settings
         </h1>
-        <p className="text-[var(--muted)]">
-          Location, Asr method, notifications, rewards — saved locally, sync when
-          ready
+        <p className="text-sm text-[var(--muted)]">
+          Location, notifications, rewards — save locally, sync when ready
         </p>
       </header>
       <SettingsForm

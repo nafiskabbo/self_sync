@@ -122,6 +122,34 @@ export async function listDailyEntries(
   );
 }
 
+export async function deleteDailyEntries(dates: string[]): Promise<void> {
+  if (dates.length === 0) return;
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("daily_entries")
+    .delete()
+    .in("date", dates);
+  if (error) throw new Error(error.message || "Failed to delete entries");
+}
+
+export async function deleteAllDailyEntries(): Promise<void> {
+  const supabase = getSupabase();
+  const { data, error: selectError } = await supabase
+    .from("daily_entries")
+    .select("date");
+  if (selectError) {
+    throw new Error(selectError.message || "Failed to list entries");
+  }
+  const dates = (data ?? []).map((row) => String((row as { date: string }).date));
+  if (dates.length === 0) return;
+
+  // Batch deletes to stay within PostgREST URL / payload limits
+  const chunkSize = 200;
+  for (let i = 0; i < dates.length; i += chunkSize) {
+    await deleteDailyEntries(dates.slice(i, i + chunkSize));
+  }
+}
+
 export async function getRewardClaim(
   periodType: "week" | "month",
   periodKey: string,

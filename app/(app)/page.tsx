@@ -1,4 +1,5 @@
-import { DailyTracker, TRACKER_ICONS } from "@/components/daily-tracker";
+import { ClearDataMenu } from "@/components/clear-data-menu";
+import { DailyTracker } from "@/components/daily-tracker";
 import { PrayerStrip } from "@/components/prayer-strip";
 import { getDailyEntry, getSettings } from "@/lib/data";
 import {
@@ -56,19 +57,24 @@ export default async function TodayPage() {
   }).format(new Date());
 
   return (
-    <div className="space-y-7">
-      <header className="animate-rise space-y-1">
-        <p className="text-sm uppercase tracking-[0.18em] text-[var(--muted)]">
-          {formatted}
-        </p>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl text-[var(--moss-deep)] sm:text-4xl">
-          Today
-        </h1>
-        {settings.latitude == null ? (
-          <p className="text-sm text-[var(--saffron)]">
-            Set your location in Settings for prayer times and notifications.
+    <div className="space-y-4 sm:space-y-5">
+      <header className="animate-rise flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)] sm:text-sm">
+            {formatted}
           </p>
-        ) : null}
+          <h1 className="font-[family-name:var(--font-display)] text-2xl text-[var(--moss-deep)] sm:text-3xl">
+            Today
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {settings.latitude == null ? (
+            <p className="text-xs text-[var(--saffron)] sm:text-sm">
+              Set location in Settings for prayer times.
+            </p>
+          ) : null}
+          <ClearDataMenu compact />
+        </div>
       </header>
 
       {chips.length ? <PrayerStrip chips={chips} nextLabel={nextLabel} /> : null}
@@ -83,7 +89,6 @@ export default async function TodayPage() {
             field: p,
             label: prayerDisplayName(p),
             points: pts[p],
-            icon: TRACKER_ICONS[p],
           })),
           {
             field: "roja" as const,
@@ -91,7 +96,6 @@ export default async function TodayPage() {
             hint: "Adds points only — never required",
             points: pts.roja,
             tone: "optional" as const,
-            icon: TRACKER_ICONS.roja,
           },
         ]}
         growthItems={[
@@ -99,14 +103,12 @@ export default async function TodayPage() {
             field: "new_things_learnt",
             label: "New things learnt",
             points: pts.new_things_learnt,
-            icon: TRACKER_ICONS.new_things_learnt,
           },
           {
             field: "diary_logged",
             label: "Wrote diary",
             hint: "Logged times",
             points: pts.diary_logged,
-            icon: TRACKER_ICONS.diary_logged,
           },
         ]}
         observeItems={[
@@ -115,28 +117,24 @@ export default async function TodayPage() {
             label: "Watched YT / videos while eating",
             points: pts.watched_videos_eating,
             tone: "observe",
-            icon: TRACKER_ICONS.watched_videos_eating,
           },
           {
             field: "backbite",
             label: "Backbite",
             points: pts.backbite,
             tone: "observe",
-            icon: TRACKER_ICONS.backbite,
           },
           {
             field: "lie",
             label: "Lie",
             points: pts.lie,
             tone: "observe",
-            icon: TRACKER_ICONS.lie,
           },
           {
             field: "mistakes",
             label: "Mistakes / other mistakes",
             points: pts.mistakes,
             tone: "observe",
-            icon: TRACKER_ICONS.mistakes,
           },
         ]}
         practiceItems={[
@@ -144,19 +142,16 @@ export default async function TodayPage() {
             field: "arabic_class",
             label: "Arabic learning class",
             points: pts.arabic_class,
-            icon: TRACKER_ICONS.arabic_class,
           },
           {
             field: "public_speaking",
             label: "Public speaking",
             points: pts.public_speaking,
-            icon: TRACKER_ICONS.public_speaking,
           },
           {
             field: "brainstorming",
             label: "Brainstorming something",
             points: pts.brainstorming,
-            icon: TRACKER_ICONS.brainstorming,
           },
         ]}
       />

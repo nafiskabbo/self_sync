@@ -82,6 +82,8 @@ export type NotificationPrefs = Record<PrayerName, PrayerNotificationPref>;
 
 export type PointsPerItem = Partial<Record<PointItem, number>>;
 
+export type ClearHistoryScope = "today" | "last7" | "all";
+
 export type Settings = {
   id: boolean;
   latitude: number | null;

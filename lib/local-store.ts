@@ -37,6 +37,36 @@ export function setLocalEntry(entry: DailyEntry, markDirty = true) {
   if (markDirty) markEntryDirty(entry.date);
 }
 
+export function listLocalEntryDates(): string[] {
+  if (typeof window === "undefined") return [];
+  const dates: string[] = [];
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(ENTRY_PREFIX)) {
+      dates.push(key.slice(ENTRY_PREFIX.length));
+    }
+  }
+  return dates.sort();
+}
+
+export function removeLocalEntry(date: string) {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(`${ENTRY_PREFIX}${date}`);
+  const dirty = getDirty();
+  dirty.entries = dirty.entries.filter((d) => d !== date);
+  writeJson(DIRTY_KEY, dirty);
+}
+
+export function removeLocalEntries(dates: string[]) {
+  for (const date of dates) {
+    removeLocalEntry(date);
+  }
+}
+
+export function clearAllLocalEntries() {
+  removeLocalEntries(listLocalEntryDates());
+}
+
 export function getLocalSettings(): Settings | null {
   return readJson<Settings>(SETTINGS_KEY);
 }

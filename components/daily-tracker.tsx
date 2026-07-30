@@ -3,11 +3,12 @@
 import {
   OBSERVE_ITEMS,
   POSITIVE_ITEMS,
+  emptyDailyEntry,
   type DailyEntry,
   type EntryBoolField,
   type PointsPerItem,
 } from "@/lib/types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PointsHero } from "@/components/points-hero";
 import { useSync } from "@/components/sync-provider";
 import { computePoints } from "@/lib/points";
@@ -31,7 +32,6 @@ type CheckItem = {
   hint?: string;
   points?: number;
   tone?: "default" | "observe" | "optional";
-  icon: LucideIcon;
 };
 
 type Props = {
@@ -44,6 +44,24 @@ type Props = {
   practiceItems: CheckItem[];
 };
 
+const TRACKER_ICONS: Record<EntryBoolField, LucideIcon> = {
+  fajr: Moon,
+  dhuhr: Sun,
+  asr: Sun,
+  maghrib: Moon,
+  isha: Moon,
+  roja: Moon,
+  new_things_learnt: Lightbulb,
+  diary_logged: NotebookPen,
+  watched_videos_eating: Eye,
+  backbite: Eye,
+  lie: Eye,
+  mistakes: Eye,
+  arabic_class: Languages,
+  public_speaking: Mic2,
+  brainstorming: Brain,
+};
+
 function CheckRow({
   item,
   checked,
@@ -53,7 +71,7 @@ function CheckRow({
   checked: boolean;
   onToggle: () => void;
 }) {
-  const Icon = item.icon;
+  const Icon = TRACKER_ICONS[item.field] ?? BookOpen;
   const isObserve = item.tone === "observe";
   const pts = item.points ?? 0;
 
@@ -61,7 +79,7 @@ function CheckRow({
     <button
       type="button"
       onClick={onToggle}
-      className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition sm:px-4 ${
+      className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition sm:gap-3 sm:px-3 ${
         checked
           ? isObserve
             ? "border-[var(--observe)]/30 bg-[var(--observe-soft)]"
@@ -72,7 +90,7 @@ function CheckRow({
       }`}
     >
       <span
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9 ${
           checked
             ? isObserve
               ? "bg-[var(--observe)] text-white"
@@ -80,16 +98,20 @@ function CheckRow({
             : "bg-[var(--paper-2)] text-[var(--moss-deep)]"
         }`}
       >
-        <Icon size={18} />
+        <Icon size={16} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block font-medium text-[var(--ink)]">{item.label}</span>
+        <span className="block text-sm font-medium leading-tight text-[var(--ink)] sm:text-[15px]">
+          {item.label}
+        </span>
         {item.hint ? (
-          <span className="block text-xs text-[var(--muted)]">{item.hint}</span>
+          <span className="block text-[11px] leading-tight text-[var(--muted)]">
+            {item.hint}
+          </span>
         ) : null}
       </span>
       <span
-        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
+        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums sm:px-2 sm:text-xs ${
           pts < 0
             ? "bg-[var(--observe-soft)] text-[var(--observe)]"
             : "bg-[var(--saffron-soft)]/50 text-[var(--saffron)]"
@@ -98,14 +120,14 @@ function CheckRow({
         {pts > 0 ? `+${pts}` : pts}
       </span>
       <span
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 sm:h-7 sm:w-7 sm:rounded-lg ${
           checked
             ? `animate-settle ${isObserve ? "border-[var(--observe)] bg-[var(--observe)]" : "border-[var(--moss)] bg-[var(--moss)]"} text-white`
             : "border-[var(--muted)]/40"
         }`}
         aria-hidden
       >
-        {checked ? <Check size={14} strokeWidth={3} /> : null}
+        {checked ? <Check size={12} strokeWidth={3} /> : null}
       </span>
     </button>
   );
@@ -117,19 +139,21 @@ function Section({
   entry,
   onToggle,
   footer,
+  className = "",
 }: {
   title: string;
   items: CheckItem[];
   entry: DailyEntry;
   onToggle: (field: EntryBoolField) => void;
   footer?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="animate-rise space-y-2.5">
-      <h2 className="font-[family-name:var(--font-display)] text-xl text-[var(--moss-deep)]">
+    <section className={`animate-rise space-y-1.5 ${className}`}>
+      <h2 className="font-[family-name:var(--font-display)] text-lg text-[var(--moss-deep)] sm:text-xl">
         {title}
       </h2>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {items.map((item) => (
           <div key={item.field}>
             <CheckRow
@@ -156,10 +180,18 @@ export function DailyTracker({
   observeItems,
   practiceItems,
 }: Props) {
-  const { getEntry, saveEntryLocal, settings } = useSync();
+  const { getEntry, saveEntryLocal, settings, entryRevision } = useSync();
   const [entry, setEntry] = useState(() => getEntry(date, initialEntry));
   const [notes, setNotes] = useState(() => entry.notes ?? "");
   const [learntNote, setLearntNote] = useState(() => entry.learnt_note ?? "");
+
+  useEffect(() => {
+    const fallback = entryRevision === 0 ? initialEntry : emptyDailyEntry(date);
+    const next = getEntry(date, fallback);
+    setEntry(next);
+    setNotes(next.notes ?? "");
+    setLearntNote(next.learnt_note ?? "");
+  }, [date, entryRevision, getEntry, initialEntry]);
 
   const ptsMap = pointsPerItem ?? settings.points_per_item;
 
@@ -201,7 +233,7 @@ export function DailyTracker({
   );
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4 sm:space-y-5">
       <PointsHero
         points={entry.points_earned}
         positiveCount={positiveCount}
@@ -214,72 +246,57 @@ export function DailyTracker({
         entry={entry}
         onToggle={onToggle}
       />
-      <Section
-        title="Growth"
-        items={growthItems}
-        entry={entry}
-        onToggle={onToggle}
-        footer={
-          <div className="mt-2 space-y-2 rounded-2xl border border-[var(--line)] bg-white/70 p-3">
-            <label className="block text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-              What did you learn?
-            </label>
-            <textarea
-              value={learntNote}
-              onChange={(e) => setLearntNote(e.target.value)}
-              onBlur={saveLearntNote}
-              rows={2}
-              placeholder="One sentence is enough…"
-              className="w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--moss)]"
-            />
-          </div>
-        }
-      />
+
+      <div className="grid gap-4 sm:gap-5 lg:grid-cols-2">
+        <Section
+          title="Growth"
+          items={growthItems}
+          entry={entry}
+          onToggle={onToggle}
+          footer={
+            <div className="mt-1.5 space-y-1.5 rounded-xl border border-[var(--line)] bg-white/70 p-2.5">
+              <label className="block text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]">
+                What did you learn?
+              </label>
+              <textarea
+                value={learntNote}
+                onChange={(e) => setLearntNote(e.target.value)}
+                onBlur={saveLearntNote}
+                rows={2}
+                placeholder="One sentence is enough…"
+                className="w-full rounded-lg border border-[var(--line)] bg-white px-2.5 py-1.5 text-sm outline-none focus:border-[var(--moss)]"
+              />
+            </div>
+          }
+        />
+        <Section
+          title="Practice"
+          items={practiceItems}
+          entry={entry}
+          onToggle={onToggle}
+        />
+      </div>
+
       <Section
         title="Observe"
         items={observeItems}
         entry={entry}
         onToggle={onToggle}
       />
-      <Section
-        title="Practice"
-        items={practiceItems}
-        entry={entry}
-        onToggle={onToggle}
-      />
 
-      <section className="space-y-2">
-        <h2 className="font-[family-name:var(--font-display)] text-xl text-[var(--moss-deep)]">
+      <section className="space-y-1.5">
+        <h2 className="font-[family-name:var(--font-display)] text-lg text-[var(--moss-deep)] sm:text-xl">
           Notes
         </h2>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           onBlur={saveNotes}
-          rows={3}
+          rows={2}
           placeholder="Anything worth remembering today…"
-          className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 outline-none focus:border-[var(--moss)]"
+          className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--moss)]"
         />
       </section>
     </div>
   );
 }
-
-export const TRACKER_ICONS = {
-  fajr: Moon,
-  dhuhr: Sun,
-  asr: Sun,
-  maghrib: Moon,
-  isha: Moon,
-  roja: Moon,
-  new_things_learnt: Lightbulb,
-  diary_logged: NotebookPen,
-  watched_videos_eating: Eye,
-  backbite: Eye,
-  lie: Eye,
-  mistakes: Eye,
-  arabic_class: Languages,
-  public_speaking: Mic2,
-  brainstorming: Brain,
-  book: BookOpen,
-} as const;

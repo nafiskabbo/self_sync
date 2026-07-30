@@ -84,6 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             height={40}
             className="rounded-xl"
             priority
+            loading="eager"
           />
           <div>
             <p className="font-[family-name:var(--font-display)] text-xl leading-none">
@@ -132,7 +133,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Menu size={22} />
           </button>
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.svg" alt="" width={28} height={28} className="rounded-lg" />
+            <Image
+              src="/logo.svg"
+              alt=""
+              width={28}
+              height={28}
+              className="rounded-lg"
+              priority
+              loading="eager"
+            />
             <span className="font-[family-name:var(--font-display)] text-lg text-[var(--moss-deep)]">
               SelfSync
             </span>
@@ -180,7 +189,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <div className="min-w-0 flex-1">
-        <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8 lg:py-10">
+        <main className="mx-auto w-full max-w-4xl px-3 py-3 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
           {children}
         </main>
       </div>

@@ -4,6 +4,8 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
 import {
   claimReward,
+  deleteAllDailyEntries,
+  deleteDailyEntries,
   getRewardClaim,
   getSettings,
   listDailyEntries,
@@ -14,8 +16,10 @@ import {
   computePoints,
   endOfIsoWeek,
   endOfMonth,
+  formatDateOnly,
   isoWeekKey,
   monthKey,
+  parseDateOnly,
   startOfIsoWeek,
   startOfMonth,
   sumPoints,
@@ -24,9 +28,9 @@ import {
   ASR_MADHABS,
   CALCULATION_METHODS,
   PRAYERS,
+  type ClearHistoryScope,
   type DailyEntry,
   type NotificationPrefs,
-  type PointsPerItem,
   type Settings,
 } from "@/lib/types";
 import { revalidatePath } from "next/cache";
@@ -192,4 +196,53 @@ export async function claimPeriodReward(
   return { ok: true };
 }
 
-export type { PointsPerItem };
+function datesForClearScope(
+  scope: ClearHistoryScope,
+  today: string,
+): string[] | "all" {
+  if (scope === "all") return "all";
+  if (scope === "today") return [today];
+  const dates: string[] = [];
+  const cursor = parseDateOnly(today);
+  for (let i = 0; i < 7; i += 1) {
+    dates.push(formatDateOnly(cursor));
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return dates;
+}
+
+/** Delete daily entries in cloud for the given scope. Local clear is client-side. */
+export async function clearDailyHistory(
+  scope: ClearHistoryScope,
+  today: string,
+): Promise<{ ok: true; cleared: string[] | "all" } | { ok: false; error: string }> {
+  await requireAuth();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) {
+    return { ok: false, error: "Invalid date" };
+  }
+
+  const target = datesForClearScope(scope, today);
+  try {
+    if (target === "all") {
+      await deleteAllDailyEntries();
+    } else {
+      await deleteDailyEntries(target);
+    }
+  } catch (e) {
+    const message =
+      e instanceof Error
+        ? e.message
+        : typeof e === "object" &&
+            e !== null &&
+            "message" in e &&
+            typeof (e as { message: unknown }).message === "string"
+          ? (e as { message: string }).message
+          : "Clear failed";
+    return { ok: false, error: message || "Clear failed" };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/history");
+  revalidatePath("/rewards");
+  return { ok: true, cleared: target };
+}
