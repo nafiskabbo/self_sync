@@ -26,19 +26,25 @@ Track namaz, optional roja, daily habits (growth + observe + practice), diary wr
 ### Today
 - Five namaz checkboxes + optional roja (points only when checked; never required)
 - Growth: new things learnt, wrote diary (logged times)
-- Observe (0 points): videos while eating, backbite, lie, mistakes
+- Observe: videos while eating (−5), backbite (−10), lie (−10), mistakes (−5)
 - Practice: arabic class, public speaking, brainstorming
 - Notes field
 - Prayer time strip when location is set
 
 ### History
-- Month calendar; open any day to edit
+- Month calendar or points chart (7 / 30 days / this month)
+- Days below the daily points threshold marked as punishment
+
+### Personal
+- Height, current / first-step / projected BMI
+- Weight logging (DB) + reports with date range and charts
+- Blood donation last date + eligibility (default 90-day wait)
 
 ### Rewards
-- Week and month point totals vs configurable goals
+- Week and month point totals vs configurable goals (defaults 200 / 800)
 - Custom reward text; claim when goal met
 - Prayer streak (consecutive days with all five prayers)
-- Claimed history
+- Claimed history; clear rewards from Settings
 
 ### Settings
 - Use my location / manual lat-lng
@@ -46,7 +52,8 @@ Track namaz, optional roja, daily habits (growth + observe + practice), diary wr
 - Timezone
 - Per-prayer notification toggles (start, mid, 30m before end, custom HH:mm)
 - Enable Web Push on this device
-- Reward texts, goals, points-per-item
+- Reward texts, goals, points-per-item, daily points threshold
+- Clear daily history / clear reward claims
 
 ### Notifications
 - Requires PWA install on iOS (Add to Home Screen) and notification permission
@@ -55,19 +62,19 @@ Track namaz, optional roja, daily habits (growth + observe + practice), diary wr
 
 ## Points rules
 
-- Only add. Observe items never deduct.
 - Positive items award configured points when checked; unchecking recalculates.
-- `points_earned` on each daily row is always recomputed and never negative.
+- Observe slips apply negative points (defaults: videos −5, backbite/lie −10, mistakes −5).
+- Days scoring below `daily_points_threshold` (default 20) are punishment days on History.
 
 ## Local-first sync
 
-Edits save to **localStorage** immediately. Cloud writes happen when you tap **Sync** or automatically every **5 minutes** if there are pending changes. This keeps the UI snappy and reduces Supabase chatter.
+Edits save to **localStorage** immediately. Cloud writes happen when you tap **Sync** or automatically every **5 minutes** if there are pending changes. Weight logs write straight to the database. This keeps the UI snappy and reduces Supabase chatter.
 
 ## Database
 
 See migrations in [`supabase/migrations/`](supabase/migrations/).
 
-Run `001_init.sql` for new projects, then `002_learnt_asr_points.sql` if you already applied v1.
+Run `001_init.sql` for new projects, then `002_learnt_asr_points.sql`, then `003_personal_health.sql`.
 
 
 ## Environment

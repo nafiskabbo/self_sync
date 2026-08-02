@@ -4,13 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  CalendarClock,
   CalendarDays,
   CloudUpload,
   Gift,
+  Globe2,
   LogOut,
   Menu,
   Settings,
   Sun,
+  UserRound,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -19,6 +22,9 @@ import { useSync } from "@/components/sync-provider";
 const LINKS = [
   { href: "/", label: "Today", icon: Sun },
   { href: "/history", label: "History", icon: CalendarDays },
+  { href: "/converter", label: "Clock", icon: Globe2 },
+  { href: "/upcoming", label: "Upcoming", icon: CalendarClock },
+  { href: "/personal", label: "Personal", icon: UserRound },
   { href: "/rewards", label: "Rewards", icon: Gift },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;

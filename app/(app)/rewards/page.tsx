@@ -6,7 +6,6 @@ import {
   listRewardClaims,
 } from "@/lib/data";
 import {
-  computePrayerStreak,
   endOfIsoWeek,
   endOfMonth,
   formatDateOnly,
@@ -15,7 +14,6 @@ import {
   parseDateOnly,
   startOfIsoWeek,
   startOfMonth,
-  sumPoints,
 } from "@/lib/points";
 import { localCalendarDate } from "@/lib/prayer";
 
@@ -55,17 +53,17 @@ export default async function RewardsPage() {
       </header>
       <RewardsClient
         today={today}
-        weekPoints={sumPoints(weekEntries)}
+        weekEntries={weekEntries}
+        monthEntries={monthEntries}
+        streakEntries={streakEntries}
         weekGoal={settings.week_goal_points}
         weekRewardText={settings.week_reward_text}
         weekClaimed={Boolean(weekClaim)}
         weekKey={isoWeekKey(today)}
-        monthPoints={sumPoints(monthEntries)}
         monthGoal={settings.month_goal_points}
         monthRewardText={settings.month_reward_text}
         monthClaimed={Boolean(monthClaim)}
         monthKey={monthKey(today)}
-        streak={computePrayerStreak(streakEntries, today)}
         history={history}
       />
     </div>

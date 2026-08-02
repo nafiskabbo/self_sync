@@ -3,12 +3,11 @@
 import {
   OBSERVE_ITEMS,
   POSITIVE_ITEMS,
-  emptyDailyEntry,
   type DailyEntry,
   type EntryBoolField,
   type PointsPerItem,
 } from "@/lib/types";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { PointsHero } from "@/components/points-hero";
 import { useSync } from "@/components/sync-provider";
 import { computePoints } from "@/lib/points";
@@ -17,12 +16,14 @@ import {
   BookOpen,
   Brain,
   Check,
+  CloudUpload,
   Eye,
   Languages,
   Lightbulb,
   Mic2,
   Moon,
   NotebookPen,
+  Save,
   Sun,
 } from "lucide-react";
 
@@ -42,6 +43,8 @@ type Props = {
   growthItems: CheckItem[];
   observeItems: CheckItem[];
   practiceItems: CheckItem[];
+  /** Show explicit Save (local + cloud sync) — used on history day pages */
+  showSaveButton?: boolean;
 };
 
 const TRACKER_ICONS: Record<EntryBoolField, LucideIcon> = {
@@ -179,48 +182,81 @@ export function DailyTracker({
   growthItems,
   observeItems,
   practiceItems,
+  showSaveButton = false,
 }: Props) {
-  const { getEntry, saveEntryLocal, settings, entryRevision } = useSync();
+  const { getEntry, saveEntryLocal, settings, entryRevision, syncNow, syncing } =
+    useSync();
   const [entry, setEntry] = useState(() => getEntry(date, initialEntry));
   const [notes, setNotes] = useState(() => entry.notes ?? "");
   const [learntNote, setLearntNote] = useState(() => entry.learnt_note ?? "");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [pendingSave, startSave] = useTransition();
 
+  // Rehydrate only when the date changes or history was cleared — not on every toggle save
   useEffect(() => {
-    const fallback = entryRevision === 0 ? initialEntry : emptyDailyEntry(date);
-    const next = getEntry(date, fallback);
+    const next = getEntry(date, initialEntry);
     setEntry(next);
     setNotes(next.notes ?? "");
     setLearntNote(next.learnt_note ?? "");
+    setSaveMsg(null);
   }, [date, entryRevision, getEntry, initialEntry]);
 
   const ptsMap = pointsPerItem ?? settings.points_per_item;
 
-  function persist(next: DailyEntry) {
+  function buildEntry(patch: Partial<DailyEntry> = {}): DailyEntry {
+    return {
+      ...entry,
+      notes: notes.trim() || null,
+      learnt_note: learntNote.trim() || null,
+      ...patch,
+      points_earned: 0,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  function persist(patch: Partial<DailyEntry> = {}) {
+    const next = buildEntry(patch);
     const scored = {
       ...next,
       points_earned: computePoints(next, ptsMap),
-      updated_at: new Date().toISOString(),
     };
     setEntry(scored);
     saveEntryLocal(scored);
+    return scored;
   }
 
   function onToggle(field: EntryBoolField) {
     const nextValue = !entry[field];
-    const next = { ...entry, [field]: nextValue };
+    const patch: Partial<DailyEntry> = { [field]: nextValue };
     if (field === "new_things_learnt" && !nextValue) {
-      next.learnt_note = null;
+      patch.learnt_note = null;
       setLearntNote("");
     }
-    persist(next);
+    persist(patch);
+    if (showSaveButton) {
+      setSaveMsg("Saved on this device · tap Save to sync");
+    }
   }
 
   function saveLearntNote() {
-    persist({ ...entry, learnt_note: learntNote.trim() || null });
+    persist({ learnt_note: learntNote.trim() || null });
   }
 
   function saveNotes() {
-    persist({ ...entry, notes: notes.trim() || null });
+    persist({ notes: notes.trim() || null });
+  }
+
+  function saveAndSync() {
+    setSaveMsg(null);
+    startSave(async () => {
+      persist();
+      try {
+        await syncNow();
+        setSaveMsg("Saved and synced to cloud");
+      } catch {
+        setSaveMsg("Saved locally · sync failed — try Sync in the sidebar");
+      }
+    });
   }
 
   const positiveCount = useMemo(
@@ -234,6 +270,27 @@ export function DailyTracker({
 
   return (
     <div className="space-y-4 sm:space-y-5">
+      {showSaveButton ? (
+        <div className="sticky top-[3.25rem] z-30 -mx-1 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[color-mix(in_oklab,var(--paper)_92%,transparent)] px-3 py-2 shadow-sm backdrop-blur-md lg:top-3">
+          <p className="text-xs text-[var(--muted)] sm:text-sm">
+            {saveMsg ?? "Edits save on this device. Use Save to sync to the cloud."}
+          </p>
+          <button
+            type="button"
+            disabled={pendingSave || syncing}
+            onClick={saveAndSync}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--moss)] px-3.5 py-2 text-sm font-medium text-white hover:bg-[var(--moss-bright)] disabled:opacity-60"
+          >
+            {pendingSave || syncing ? (
+              <CloudUpload size={16} className="animate-pulse" />
+            ) : (
+              <Save size={16} />
+            )}
+            {pendingSave || syncing ? "Saving…" : "Save"}
+          </button>
+        </div>
+      ) : null}
+
       <PointsHero
         points={entry.points_earned}
         positiveCount={positiveCount}
@@ -297,6 +354,18 @@ export function DailyTracker({
           className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--moss)]"
         />
       </section>
+
+      {showSaveButton ? (
+        <button
+          type="button"
+          disabled={pendingSave || syncing}
+          onClick={saveAndSync}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--moss)] px-3.5 py-2.5 text-sm font-medium text-white hover:bg-[var(--moss-bright)] disabled:opacity-60 sm:w-auto"
+        >
+          <Save size={16} />
+          {pendingSave || syncing ? "Saving…" : "Save day"}
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { DailyTracker } from "@/components/daily-tracker";
 import Link from "next/link";
 import { getDailyEntry, getSettings } from "@/lib/data";
+import { formatFullDate } from "@/lib/format-date";
 import { DEFAULT_POINTS_PER_ITEM, PRAYERS } from "@/lib/types";
 import { prayerDisplayName } from "@/lib/prayer-labels";
 
@@ -25,13 +26,17 @@ export default async function HistoryDayPage({
       <div>
         <Link
           href={`/history?month=${date.slice(0, 7)}`}
+          prefetch={false}
           className="text-sm text-[var(--muted)] hover:text-[var(--moss)]"
         >
           ← History
         </Link>
         <h1 className="font-[family-name:var(--font-display)] text-3xl text-[var(--moss-deep)]">
-          {date}
+          {formatFullDate(date)}
         </h1>
+        <p className="text-sm text-[var(--muted)]">
+          Edit this day, then tap Save to sync
+        </p>
       </div>
 
       <DailyTracker
@@ -39,6 +44,7 @@ export default async function HistoryDayPage({
         date={date}
         initialEntry={entry}
         pointsPerItem={pts}
+        showSaveButton
         namazItems={[
           ...PRAYERS.map((p) => ({
             field: p,

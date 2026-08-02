@@ -1,9 +1,10 @@
 "use client";
 
 import { Bell, Clock, MapPin, Save } from "lucide-react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ClearDataMenu } from "@/components/clear-data-menu";
 import { useSync } from "@/components/sync-provider";
+import { clearRewardClaims } from "@/lib/actions";
 import {
   ASR_MADHABS,
   CALCULATION_METHODS,
@@ -12,20 +13,7 @@ import {
   type Settings,
 } from "@/lib/types";
 import { prayerDisplayName } from "@/lib/prayer-labels";
-
-const COMMON_TIMEZONES = [
-  "Asia/Dhaka",
-  "Asia/Karachi",
-  "Asia/Dubai",
-  "Asia/Riyadh",
-  "Asia/Jakarta",
-  "Asia/Kuala_Lumpur",
-  "Asia/Singapore",
-  "Europe/London",
-  "America/New_York",
-  "America/Los_Angeles",
-  "UTC",
-];
+import { COMMON_TIMEZONES } from "@/lib/timezones";
 
 const fieldClass =
   "w-full rounded-lg border border-[var(--line)] bg-white/70 px-2.5 py-1.5 text-sm outline-none focus:border-[var(--moss)]";
@@ -37,6 +25,8 @@ export function SettingsForm({ vapidPublicKey }: { vapidPublicKey: string | null
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
+  const [rewardsPending, startRewardsClear] = useTransition();
+  const [rewardsMsg, setRewardsMsg] = useState<string | null>(null);
 
   if (settings.updated_at !== settingsStamp) {
     setSettingsStamp(settings.updated_at);
@@ -379,6 +369,24 @@ export function SettingsForm({ vapidPublicKey }: { vapidPublicKey: string | null
           Rewards &amp; points
         </h2>
 
+        <label className="block space-y-0.5 text-sm sm:max-w-xs">
+          <span className="text-xs text-[var(--muted)]">
+            Daily points threshold (punishment below)
+          </span>
+          <input
+            type="number"
+            min={0}
+            value={draft.daily_points_threshold ?? 20}
+            onChange={(e) =>
+              patch("daily_points_threshold", Number(e.target.value))
+            }
+            className={fieldClass}
+          />
+          <span className="block text-[11px] text-[var(--muted)]">
+            Days scoring under this mark as punishment on History
+          </span>
+        </label>
+
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="space-y-0.5 text-sm">
             <span className="text-xs text-[var(--muted)]">Week reward</span>
@@ -389,7 +397,9 @@ export function SettingsForm({ vapidPublicKey }: { vapidPublicKey: string | null
             />
           </label>
           <label className="space-y-0.5 text-sm">
-            <span className="text-xs text-[var(--muted)]">Week goal points</span>
+            <span className="text-xs text-[var(--muted)]">
+              Week goal points (default 200)
+            </span>
             <input
               type="number"
               value={draft.week_goal_points}
@@ -406,7 +416,9 @@ export function SettingsForm({ vapidPublicKey }: { vapidPublicKey: string | null
             />
           </label>
           <label className="space-y-0.5 text-sm">
-            <span className="text-xs text-[var(--muted)]">Month goal points</span>
+            <span className="text-xs text-[var(--muted)]">
+              Month goal points (default 800)
+            </span>
             <input
               type="number"
               value={draft.month_goal_points}
@@ -443,9 +455,43 @@ export function SettingsForm({ vapidPublicKey }: { vapidPublicKey: string | null
         </h2>
         <p className="text-xs text-[var(--muted)] sm:text-sm">
           Clear today&apos;s checkboxes, wipe the last 7 days, or reset all daily
-          history (local + cloud). Settings and reward claims are kept.
+          history (local + cloud). Settings are kept.
         </p>
-        <ClearDataMenu />
+        <div className="flex flex-wrap gap-2">
+          <ClearDataMenu />
+          <button
+            type="button"
+            disabled={rewardsPending}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  "Clear all claimed rewards history? This cannot be undone.",
+                )
+              ) {
+                return;
+              }
+              setRewardsMsg(null);
+              startRewardsClear(async () => {
+                const result = await clearRewardClaims();
+                if (!result.ok) {
+                  setRewardsMsg(result.error);
+                  return;
+                }
+                setRewardsMsg(
+                  result.cleared === 0
+                    ? "No reward claims to clear"
+                    : `Cleared ${result.cleared} reward claim${result.cleared === 1 ? "" : "s"}`,
+                );
+              });
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-white/80 px-3 py-1.5 text-sm text-[var(--ink-soft)] transition hover:border-[var(--observe)]/40 hover:text-[var(--observe)] disabled:opacity-50"
+          >
+            {rewardsPending ? "Clearing…" : "Clear rewards"}
+          </button>
+        </div>
+        {rewardsMsg ? (
+          <p className="text-xs text-[var(--muted)]">{rewardsMsg}</p>
+        ) : null}
       </section>
     </div>
   );

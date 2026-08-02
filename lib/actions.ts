@@ -5,12 +5,16 @@ import { requireAuth } from "@/lib/auth";
 import {
   claimReward,
   deleteAllDailyEntries,
+  deleteAllRewardClaims,
   deleteDailyEntries,
+  deleteWeightLog,
   getRewardClaim,
   getSettings,
   listDailyEntries,
+  listWeightLogs,
   updateSettings,
   upsertDailyEntry,
+  upsertWeightLog,
 } from "@/lib/data";
 import {
   computePoints,
@@ -57,6 +61,16 @@ const settingsSchema = z.object({
   week_goal_points: z.number().int().min(1).optional(),
   month_goal_points: z.number().int().min(1).optional(),
   points_per_item: z.record(z.string(), z.number()).optional(),
+  height_cm: z.number().positive().nullable().optional(),
+  target_bmi: z.number().positive().nullable().optional(),
+  first_step_bmi: z.number().positive().nullable().optional(),
+  blood_donated_at: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+  blood_wait_days: z.number().int().min(1).max(365).optional(),
+  daily_points_threshold: z.number().int().min(0).max(500).optional(),
   updated_at: z.string().optional(),
 });
 
@@ -245,4 +259,83 @@ export async function clearDailyHistory(
   revalidatePath("/history");
   revalidatePath("/rewards");
   return { ok: true, cleared: target };
+}
+
+export async function clearRewardClaims(): Promise<
+  { ok: true; cleared: number } | { ok: false; error: string }
+> {
+  await requireAuth();
+  try {
+    const cleared = await deleteAllRewardClaims();
+    revalidatePath("/rewards");
+    return { ok: true, cleared };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to clear rewards",
+    };
+  }
+}
+
+const weightLogSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  weight_kg: z.number().positive().max(500),
+  note: z.string().nullable().optional(),
+});
+
+export async function saveWeightLog(input: {
+  date: string;
+  weight_kg: number;
+  note?: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAuth();
+  try {
+    const parsed = weightLogSchema.parse(input);
+    await upsertWeightLog(parsed);
+    revalidatePath("/personal");
+    revalidatePath("/personal/reports");
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to save weight",
+    };
+  }
+}
+
+export async function removeWeightLog(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAuth();
+  if (!id) return { ok: false, error: "Missing id" };
+  try {
+    await deleteWeightLog(id);
+    revalidatePath("/personal");
+    revalidatePath("/personal/reports");
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to delete weight",
+    };
+  }
+}
+
+export async function fetchWeightLogs(
+  from?: string,
+  to?: string,
+): Promise<
+  | { ok: true; logs: Awaited<ReturnType<typeof listWeightLogs>> }
+  | { ok: false; error: string }
+> {
+  await requireAuth();
+  try {
+    const logs = await listWeightLogs(from, to);
+    return { ok: true, logs };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to load weights",
+    };
+  }
 }

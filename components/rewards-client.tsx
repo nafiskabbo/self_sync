@@ -2,43 +2,103 @@
 
 import { Frown, PartyPopper, Trophy } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
+import { useSync } from "@/components/sync-provider";
 import { claimPeriodReward } from "@/lib/actions";
-import type { RewardClaimed } from "@/lib/types";
+import { formatLongDate } from "@/lib/format-date";
+import { mergeEntriesWithLocal } from "@/lib/merge-local-entries";
+import {
+  computePrayerStreak,
+  endOfIsoWeek,
+  endOfMonth,
+  startOfIsoWeek,
+  startOfMonth,
+  sumPoints,
+} from "@/lib/points";
+import type { DailyEntry, RewardClaimed } from "@/lib/types";
 
 export function RewardsClient({
   today,
-  weekPoints,
+  weekEntries: serverWeek,
+  monthEntries: serverMonth,
+  streakEntries: serverStreak,
   weekGoal,
   weekRewardText,
   weekClaimed,
   weekKey,
-  monthPoints,
   monthGoal,
   monthRewardText,
   monthClaimed,
   monthKey,
-  streak,
   history,
 }: {
   today: string;
-  weekPoints: number;
+  weekEntries: DailyEntry[];
+  monthEntries: DailyEntry[];
+  streakEntries: DailyEntry[];
   weekGoal: number;
   weekRewardText: string;
   weekClaimed: boolean;
   weekKey: string;
-  monthPoints: number;
   monthGoal: number;
   monthRewardText: string;
   monthClaimed: boolean;
   monthKey: string;
-  streak: number;
   history: RewardClaimed[];
 }) {
+  const { settings, entriesVersion, syncNow } = useSync();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [localWeekClaimed, setLocalWeekClaimed] = useState(weekClaimed);
   const [localMonthClaimed, setLocalMonthClaimed] = useState(monthClaimed);
   const [fx, setFx] = useState<"win" | "lose" | null>(null);
+
+  const weekFrom = startOfIsoWeek(today);
+  const weekTo = endOfIsoWeek(today);
+  const monthFrom = startOfMonth(today);
+  const monthTo = endOfMonth(today);
+  const streakFrom = serverStreak[0]?.date ?? today;
+
+  const [weekPoints, setWeekPoints] = useState(() => sumPoints(serverWeek));
+  const [monthPoints, setMonthPoints] = useState(() => sumPoints(serverMonth));
+  const [streak, setStreak] = useState(() =>
+    computePrayerStreak(serverStreak, today),
+  );
+
+  useEffect(() => {
+    const weekMerged = mergeEntriesWithLocal(
+      serverWeek,
+      weekFrom,
+      weekTo,
+      settings.points_per_item,
+    );
+    const monthMerged = mergeEntriesWithLocal(
+      serverMonth,
+      monthFrom,
+      monthTo,
+      settings.points_per_item,
+    );
+    const streakMerged = mergeEntriesWithLocal(
+      serverStreak,
+      streakFrom,
+      today,
+      settings.points_per_item,
+    );
+    setWeekPoints(sumPoints(weekMerged));
+    setMonthPoints(sumPoints(monthMerged));
+    setStreak(computePrayerStreak(streakMerged, today));
+  }, [
+    serverWeek,
+    serverMonth,
+    serverStreak,
+    weekFrom,
+    weekTo,
+    monthFrom,
+    monthTo,
+    streakFrom,
+    today,
+    settings.points_per_item,
+    entriesVersion,
+  ]);
 
   useEffect(() => {
     if (!fx) return;
@@ -49,6 +109,7 @@ export function RewardsClient({
   function claim(type: "week" | "month") {
     setMsg(null);
     startTransition(async () => {
+      await syncNow();
       const result = await claimPeriodReward(type, today);
       if (!result.ok) {
         setFx("lose");
@@ -140,7 +201,7 @@ export function RewardsClient({
                 <p className="text-[var(--ink-soft)]">{r.reward_text}</p>
                 <p className="text-xs text-[var(--muted)]">
                   {r.points_at_claim} pts ·{" "}
-                  {new Date(r.claimed_at).toLocaleString()}
+                  {formatLongDate(r.claimed_at.slice(0, 10))}
                 </p>
               </li>
             ))}

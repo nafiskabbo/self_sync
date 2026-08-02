@@ -98,6 +98,12 @@ export type Settings = {
   week_goal_points: number;
   month_goal_points: number;
   points_per_item: PointsPerItem;
+  height_cm: number | null;
+  target_bmi: number | null;
+  first_step_bmi: number | null;
+  blood_donated_at: string | null;
+  blood_wait_days: number;
+  daily_points_threshold: number;
   updated_at: string;
 };
 
@@ -143,6 +149,26 @@ export type PushSubscriptionRow = {
   created_at: string;
 };
 
+/** Local-only client meeting / reminder (not synced) */
+export type UpcomingEvent = {
+  id: string;
+  clientName: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  meetingUrl: string | null;
+  notes: string | null;
+  createdAt: string;
+};
+
+export type WeightLog = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  weight_kg: number;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   fajr: { start: true, mid: true, mid_time: null, before_end_30: true },
   dhuhr: { start: true, mid: true, mid_time: null, before_end_30: true },
@@ -164,9 +190,9 @@ export const DEFAULT_POINTS_PER_ITEM: Record<PointItem, number> = {
   public_speaking: 8,
   brainstorming: 5,
   watched_videos_eating: -5,
-  backbite: -8,
-  lie: -8,
-  mistakes: -3,
+  backbite: -10,
+  lie: -10,
+  mistakes: -5,
 };
 
 export function emptyDailyEntry(date: string): DailyEntry {
@@ -217,4 +243,45 @@ export function normalizeNotificationPrefs(
     };
   }
   return base;
+}
+
+export function normalizeSettingsShape(
+  row: Partial<Settings> &
+    Pick<
+      Settings,
+      | "timezone"
+      | "calculation_method"
+      | "week_reward_text"
+      | "month_reward_text"
+      | "week_goal_points"
+      | "month_goal_points"
+      | "points_per_item"
+      | "updated_at"
+    >,
+): Settings {
+  return {
+    id: true,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    location_label: row.location_label ?? null,
+    timezone: row.timezone,
+    calculation_method: row.calculation_method,
+    asr_madhab: row.asr_madhab === "Hanafi" ? "Hanafi" : "Shafi",
+    notification_prefs: normalizeNotificationPrefs(row.notification_prefs),
+    week_reward_text: row.week_reward_text,
+    month_reward_text: row.month_reward_text,
+    week_goal_points: row.week_goal_points ?? 200,
+    month_goal_points: row.month_goal_points ?? 800,
+    points_per_item: {
+      ...DEFAULT_POINTS_PER_ITEM,
+      ...(row.points_per_item as PointsPerItem),
+    },
+    height_cm: row.height_cm ?? null,
+    target_bmi: row.target_bmi ?? null,
+    first_step_bmi: row.first_step_bmi ?? null,
+    blood_donated_at: row.blood_donated_at ?? null,
+    blood_wait_days: row.blood_wait_days ?? 90,
+    daily_points_threshold: row.daily_points_threshold ?? 20,
+    updated_at: row.updated_at,
+  };
 }

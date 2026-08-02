@@ -1,11 +1,14 @@
 "use client";
 
-import type { DailyEntry, Settings } from "@/lib/types";
+import { DEFAULT_CONVERTER_ZONES } from "@/lib/timezones";
+import type { DailyEntry, Settings, UpcomingEvent } from "@/lib/types";
 
 const ENTRY_PREFIX = "selfsync:entry:";
 const SETTINGS_KEY = "selfsync:settings";
 const DIRTY_KEY = "selfsync:dirty";
 const LAST_SYNC_KEY = "selfsync:lastSync";
+const CONVERTER_ZONES_KEY = "selfsync:converterZones";
+const UPCOMING_EVENTS_KEY = "selfsync:upcomingEvents";
 
 export type DirtyState = {
   entries: string[]; // dates
@@ -112,6 +115,47 @@ export function getLastSync(): string | null {
 export function setLastSync(iso: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem(LAST_SYNC_KEY, iso);
+}
+
+export function getConverterZones(): string[] {
+  const stored = readJson<string[]>(CONVERTER_ZONES_KEY);
+  if (Array.isArray(stored) && stored.length > 0) {
+    return stored.filter((z) => typeof z === "string" && z.length > 0);
+  }
+  return [...DEFAULT_CONVERTER_ZONES];
+}
+
+export function setConverterZones(zones: string[]) {
+  writeJson(CONVERTER_ZONES_KEY, zones);
+}
+
+export function getUpcomingEvents(): UpcomingEvent[] {
+  const stored = readJson<UpcomingEvent[]>(UPCOMING_EVENTS_KEY);
+  if (!Array.isArray(stored)) return [];
+  return stored
+    .filter(
+      (e) =>
+        e &&
+        typeof e.id === "string" &&
+        typeof e.clientName === "string" &&
+        typeof e.date === "string" &&
+        typeof e.time === "string",
+    )
+    .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+}
+
+export function setUpcomingEvents(events: UpcomingEvent[]) {
+  writeJson(UPCOMING_EVENTS_KEY, events);
+}
+
+export function upsertUpcomingEvent(event: UpcomingEvent) {
+  const events = getUpcomingEvents().filter((e) => e.id !== event.id);
+  events.push(event);
+  setUpcomingEvents(events);
+}
+
+export function removeUpcomingEvent(id: string) {
+  setUpcomingEvents(getUpcomingEvents().filter((e) => e.id !== id));
 }
 
 /** Prefer local if it has a newer updated_at */

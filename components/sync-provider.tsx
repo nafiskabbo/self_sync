@@ -34,6 +34,7 @@ import {
 import { formatDateOnly, parseDateOnly } from "@/lib/points";
 import {
   emptyDailyEntry,
+  normalizeSettingsShape,
   type ClearHistoryScope,
   type DailyEntry,
   type Settings,
@@ -47,8 +48,11 @@ type SyncContextValue = {
   syncing: boolean;
   lastSync: string | null;
   status: string | null;
+  /** Bumps on clear — DailyTracker rehydrates */
   entryRevision: number;
-  syncNow: () => void;
+  /** Bumps on every local entry write — History/Rewards re-merge */
+  entriesVersion: number;
+  syncNow: () => Promise<void>;
   saveEntryLocal: (entry: DailyEntry) => void;
   saveSettingsLocal: (settings: Settings) => void;
   getEntry: (date: string, serverFallback: DailyEntry) => DailyEntry;
@@ -60,11 +64,14 @@ type SyncContextValue = {
 const SyncContext = createContext<SyncContextValue | null>(null);
 
 function initSettings(server: Settings): Settings {
-  if (typeof window === "undefined") return server;
+  if (typeof window === "undefined") return normalizeSettingsShape(server);
   const local = getLocalSettings();
-  const merged = mergeSettings(server, local);
-  if (!local) setLocalSettings(server, false);
-  return merged;
+  const merged = mergeSettings(
+    normalizeSettingsShape(server),
+    local ? normalizeSettingsShape(local) : null,
+  );
+  if (!local) setLocalSettings(merged, false);
+  return normalizeSettingsShape(merged);
 }
 
 function lastNDates(today: string, n: number): string[] {
@@ -93,6 +100,7 @@ export function SyncProvider({
   );
   const [status, setStatus] = useState<string | null>(null);
   const [entryRevision, setEntryRevision] = useState(0);
+  const [entriesVersion, setEntriesVersion] = useState(0);
   const [syncing, startSync] = useTransition();
   const serverStampRef = useRef(initialSettings.updated_at);
   const settingsRef = useRef(settings);
@@ -102,51 +110,60 @@ export function SyncProvider({
   if (initialSettings.updated_at !== serverStampRef.current) {
     serverStampRef.current = initialSettings.updated_at;
     const local = getLocalSettings();
-    const merged = mergeSettings(initialSettings, local);
+    const merged = mergeSettings(
+      normalizeSettingsShape(initialSettings),
+      local ? normalizeSettingsShape(local) : null,
+    );
     if (merged.updated_at !== settings.updated_at) {
-      setSettings(merged);
+      setSettings(normalizeSettingsShape(merged));
     }
   }
 
   const syncNow = useCallback(() => {
-    startSync(async () => {
-      setStatus(null);
-      try {
-        const dirtyState = getDirty();
-        const localSettings = dirtyState.settings
-          ? (getLocalSettings() ?? settingsRef.current)
-          : null;
-        const entries = dirtyState.entries
-          .map((d) => getLocalEntry(d))
-          .filter((e): e is DailyEntry => Boolean(e));
+    return new Promise<void>((resolve) => {
+      startSync(async () => {
+        setStatus(null);
+        try {
+          const dirtyState = getDirty();
+          const localSettings = dirtyState.settings
+            ? normalizeSettingsShape(
+                getLocalSettings() ?? settingsRef.current,
+              )
+            : null;
+          const entries = dirtyState.entries
+            .map((d) => getLocalEntry(d))
+            .filter((e): e is DailyEntry => Boolean(e));
 
-        if (!localSettings && entries.length === 0) {
+          if (!localSettings && entries.length === 0) {
+            const now = new Date().toISOString();
+            setLastSync(now);
+            setLastSyncState(now);
+            setStatus("Already in sync");
+            setDirty(false);
+            return;
+          }
+
+          const result = await syncToCloud({
+            settings: localSettings,
+            entries,
+          });
+          setSettings(normalizeSettingsShape(result.settings));
+          setLocalSettings(normalizeSettingsShape(result.settings), false);
+          clearDirty({
+            settings: Boolean(localSettings),
+            entries: result.syncedDates,
+          });
           const now = new Date().toISOString();
           setLastSync(now);
           setLastSyncState(now);
-          setStatus("Already in sync");
-          setDirty(false);
-          return;
+          setDirty(isDirty());
+          setStatus("Synced to cloud");
+        } catch (e) {
+          setStatus(e instanceof Error ? e.message : "Sync failed");
+        } finally {
+          resolve();
         }
-
-        const result = await syncToCloud({
-          settings: localSettings,
-          entries,
-        });
-        setSettings(result.settings);
-        setLocalSettings(result.settings, false);
-        clearDirty({
-          settings: Boolean(localSettings),
-          entries: result.syncedDates,
-        });
-        const now = new Date().toISOString();
-        setLastSync(now);
-        setLastSyncState(now);
-        setDirty(isDirty());
-        setStatus("Synced to cloud");
-      } catch (e) {
-        setStatus(e instanceof Error ? e.message : "Sync failed");
-      }
+      });
     });
   }, []);
 
@@ -161,11 +178,15 @@ export function SyncProvider({
     const next = { ...entry, updated_at: new Date().toISOString() };
     setLocalEntry(next, true);
     setDirty(true);
+    setEntriesVersion((n) => n + 1);
     setStatus("Saved locally · pending sync");
   }, []);
 
   const saveSettingsLocal = useCallback((next: Settings) => {
-    const stamped = { ...next, updated_at: new Date().toISOString() };
+    const stamped = normalizeSettingsShape({
+      ...next,
+      updated_at: new Date().toISOString(),
+    });
     setLocalSettings(stamped, true);
     setSettings(stamped);
     setDirty(true);
@@ -216,6 +237,7 @@ export function SyncProvider({
 
       setDirty(isDirty());
       setEntryRevision((n) => n + 1);
+      setEntriesVersion((n) => n + 1);
       setStatus(
         scope === "today"
           ? "Cleared today"
@@ -242,6 +264,7 @@ export function SyncProvider({
       lastSync,
       status,
       entryRevision,
+      entriesVersion,
       syncNow,
       saveEntryLocal,
       saveSettingsLocal,
@@ -255,6 +278,7 @@ export function SyncProvider({
       lastSync,
       status,
       entryRevision,
+      entriesVersion,
       syncNow,
       saveEntryLocal,
       saveSettingsLocal,

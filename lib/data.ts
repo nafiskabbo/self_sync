@@ -2,13 +2,12 @@ import "server-only";
 
 import { getSupabase } from "@/lib/supabase";
 import {
-  DEFAULT_POINTS_PER_ITEM,
   emptyDailyEntry,
-  normalizeNotificationPrefs,
+  normalizeSettingsShape,
   type DailyEntry,
-  type PointsPerItem,
   type RewardClaimed,
   type Settings,
+  type WeightLog,
 } from "@/lib/types";
 
 function normalizeEntry(row: DailyEntry | null, date: string): DailyEntry {
@@ -21,15 +20,7 @@ function normalizeEntry(row: DailyEntry | null, date: string): DailyEntry {
 }
 
 function normalizeSettings(row: Settings): Settings {
-  return {
-    ...row,
-    asr_madhab: row.asr_madhab === "Hanafi" ? "Hanafi" : "Shafi",
-    notification_prefs: normalizeNotificationPrefs(row.notification_prefs),
-    points_per_item: {
-      ...DEFAULT_POINTS_PER_ITEM,
-      ...(row.points_per_item as PointsPerItem),
-    },
-  };
+  return normalizeSettingsShape(row);
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -193,4 +184,88 @@ export async function listRewardClaims(limit = 20): Promise<RewardClaimed[]> {
 
   if (error) throw error;
   return (data ?? []) as RewardClaimed[];
+}
+
+export async function deleteAllRewardClaims(): Promise<number> {
+  const supabase = getSupabase();
+  const { data, error: selectError } = await supabase
+    .from("rewards_claimed")
+    .select("id");
+  if (selectError) throw new Error(selectError.message || "Failed to list rewards");
+  const ids = (data ?? []).map((row) => String((row as { id: string }).id));
+  if (ids.length === 0) return 0;
+
+  const chunkSize = 200;
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const { error } = await supabase.from("rewards_claimed").delete().in("id", chunk);
+    if (error) throw new Error(error.message || "Failed to clear rewards");
+  }
+  return ids.length;
+}
+
+function normalizeWeightLog(row: WeightLog): WeightLog {
+  return {
+    id: row.id,
+    date: String(row.date).slice(0, 10),
+    weight_kg: Number(row.weight_kg),
+    note: row.note ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export async function listWeightLogs(
+  from?: string,
+  to?: string,
+): Promise<WeightLog[]> {
+  const supabase = getSupabase();
+  let query = supabase
+    .from("weight_logs")
+    .select("*")
+    .order("date", { ascending: true });
+  if (from) query = query.gte("date", from);
+  if (to) query = query.lte("date", to);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((row) => normalizeWeightLog(row as WeightLog));
+}
+
+export async function getLatestWeightLog(): Promise<WeightLog | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("weight_logs")
+    .select("*")
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? normalizeWeightLog(data as WeightLog) : null;
+}
+
+export async function upsertWeightLog(input: {
+  date: string;
+  weight_kg: number;
+  note?: string | null;
+}): Promise<WeightLog> {
+  const supabase = getSupabase();
+  const payload = {
+    date: input.date,
+    weight_kg: input.weight_kg,
+    note: input.note?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabase
+    .from("weight_logs")
+    .upsert(payload, { onConflict: "date" })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return normalizeWeightLog(data as WeightLog);
+}
+
+export async function deleteWeightLog(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from("weight_logs").delete().eq("id", id);
+  if (error) throw new Error(error.message || "Failed to delete weight log");
 }
