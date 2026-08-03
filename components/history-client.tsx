@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { BarChart3 } from "lucide-react";
 import { BarChart } from "@/components/simple-chart";
 import { useSync } from "@/components/sync-provider";
 import { formatAxisDate, formatLongDate } from "@/lib/format-date";
@@ -174,9 +175,19 @@ export function HistoryClient({
             </button>
           ))}
         </div>
-        <p className="text-xs text-[var(--muted)]">
-          Below {threshold}p = punishment day
-        </p>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <p className="text-xs text-[var(--muted)]">
+            Below {threshold}p = punishment day
+          </p>
+          <Link
+            href="/history/reports"
+            prefetch={false}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--moss)] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-[var(--moss-bright)]"
+          >
+            <BarChart3 size={14} />
+            View All
+          </Link>
+        </div>
       </div>
 
       {view === "calendar" ? (

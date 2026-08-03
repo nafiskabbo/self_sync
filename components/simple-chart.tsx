@@ -10,6 +10,20 @@ export type ChartPoint = {
   title?: string;
 };
 
+export type StackedBarSegment = {
+  id: string;
+  label: string;
+  color: string;
+};
+
+export type StackedBarPoint = {
+  label: string;
+  title: string;
+  /** 0..1 completion ratio per segment — 1 means done that day, decimals for aggregates */
+  counts: number[];
+  muted?: boolean;
+};
+
 type Tip = {
   x: number;
   y: number;
@@ -421,6 +435,177 @@ export function BarChart({
                 key={`lbl-${i}`}
                 x={xAt(i) + barW / 2}
                 y={height - 6}
+                textAnchor="middle"
+                fill="var(--muted)"
+                fontSize={10}
+              >
+                {p.label}
+              </text>
+            ) : null,
+          )}
+        </svg>
+      </ChartShell>
+    </div>
+  );
+}
+
+export function StackedBarChart({
+  points,
+  segments,
+  height = 208,
+}: {
+  points: StackedBarPoint[];
+  segments: StackedBarSegment[];
+  height?: number;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [tip, setTip] = useState<Tip | null>(null);
+  const [active, setActive] = useState<number | null>(null);
+
+  const width = 640;
+  const padX = 10;
+  const padT = 12;
+  const padB = 26;
+  const gridH = height - padT - padB;
+  const innerW = width - padX * 2;
+  const rowH = gridH / segments.length;
+  const gap = points.length > 60 ? 2 : points.length > 26 ? 5 : 8;
+  const barW = Math.max(6, innerW / points.length - gap);
+  const xAt = (i: number) => padX + i * (innerW / points.length) + gap / 2;
+  const labelStep = Math.max(1, Math.ceil(points.length / 8));
+
+  function showTip(i: number, clientX: number, clientY: number) {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const p = points[i];
+    const doneCount = p.counts.reduce(
+      (sum, c) => (c >= 1 ? sum + 1 : sum),
+      0,
+    );
+    setActive(i);
+    setTip({
+      x: clientX - wrap.getBoundingClientRect().left,
+      y: clientY - wrap.getBoundingClientRect().top,
+      title: p.title,
+      value: `${doneCount} of ${segments.length} done`,
+    });
+  }
+
+  function nearestIndex(svgX: number) {
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < points.length; i += 1) {
+      const d = Math.abs(xAt(i) + barW / 2 - svgX);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  if (points.length === 0) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-2xl border border-dashed border-[var(--line)] text-sm text-[var(--muted)]"
+        style={{ height }}
+      >
+        No data in this range
+      </div>
+    );
+  }
+
+  return (
+    <div ref={wrapRef}>
+      <ChartShell height={height} tip={tip}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-auto w-full touch-none"
+          role="img"
+          aria-label="Stacked bar chart"
+          onMouseLeave={() => {
+            setTip(null);
+            setActive(null);
+          }}
+          onMouseMove={(e) => {
+            const svg = e.currentTarget;
+            const rect = svg.getBoundingClientRect();
+            const svgX = ((e.clientX - rect.left) / rect.width) * width;
+            const i = nearestIndex(svgX);
+            showTip(i, e.clientX, e.clientY);
+          }}
+          onTouchStart={(e) => {
+            const t = e.touches[0];
+            if (!t) return;
+            const svg = e.currentTarget;
+            const rect = svg.getBoundingClientRect();
+            const svgX = ((t.clientX - rect.left) / rect.width) * width;
+            const i = nearestIndex(svgX);
+            showTip(i, t.clientX, t.clientY);
+          }}
+        >
+          {segments.map((s, r) => {
+            const y = padT + r * rowH;
+            return (
+              <line
+                key={s.id}
+                x1={padX}
+                x2={width - padX}
+                y1={y}
+                y2={y}
+                stroke="var(--line)"
+                strokeWidth={1}
+                opacity={0.55}
+              />
+            );
+          })}
+
+          {points.map((p, i) => (
+            <g key={`${p.label}-${i}`}>
+              {segments.map((s, r) => {
+                const y = padT + r * rowH + 2;
+                const h = Math.max(rowH - 4, 2);
+                const count = p.counts[r] ?? 0;
+                return (
+                  <rect
+                    key={s.id}
+                    x={xAt(i)}
+                    y={y}
+                    width={barW}
+                    height={h}
+                    rx={2.5}
+                    fill={
+                      count > 0
+                        ? s.color
+                        : active === i
+                          ? "var(--line)"
+                          : "rgba(20, 32, 27, 0.07)"
+                    }
+                    opacity={count > 0 ? Math.min(1, count) : 1}
+                    stroke={count > 0 ? "none" : "var(--line)"}
+                    strokeWidth={0.75}
+                  />
+                );
+              })}
+            </g>
+          ))}
+
+          <line
+            x1={padX}
+            x2={width - padX}
+            y1={padT + gridH}
+            y2={padT + gridH}
+            stroke="var(--ink-soft)"
+            strokeWidth={1}
+            opacity={0.3}
+          />
+
+          {points.map((p, i) =>
+            i % labelStep === 0 || i === points.length - 1 ? (
+              <text
+                key={`lbl-${i}`}
+                x={xAt(i) + barW / 2}
+                y={height - 7}
                 textAnchor="middle"
                 fill="var(--muted)"
                 fontSize={10}
