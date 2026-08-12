@@ -74,7 +74,11 @@ Edits save to **localStorage** immediately. Cloud writes happen when you tap **S
 
 See migrations in [`supabase/migrations/`](supabase/migrations/).
 
-Run `001_init.sql` for new projects, then `002_learnt_asr_points.sql`, then `003_personal_health.sql`.
+Run `001_init.sql` for new projects, then `002_learnt_asr_points.sql`, then `003_personal_health.sql`, then `004_invoice_contacts.sql`.
+
+### Tools
+- Invoice generator (paper/light PDF theme)
+- Saved From + Client contact lists in Supabase
 
 
 ## Environment

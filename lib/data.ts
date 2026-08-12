@@ -5,6 +5,8 @@ import {
   emptyDailyEntry,
   normalizeSettingsShape,
   type DailyEntry,
+  type InvoiceContact,
+  type InvoiceContactKind,
   type RewardClaimed,
   type Settings,
   type WeightLog,
@@ -268,4 +270,92 @@ export async function deleteWeightLog(id: string): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase.from("weight_logs").delete().eq("id", id);
   if (error) throw new Error(error.message || "Failed to delete weight log");
+}
+
+function normalizeInvoiceContact(row: InvoiceContact): InvoiceContact {
+  return {
+    id: row.id,
+    kind: row.kind,
+    name: row.name ?? "",
+    email: row.email ?? "",
+    phone: row.phone ?? "",
+    address: row.address ?? "",
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export async function listInvoiceContacts(
+  kind?: InvoiceContactKind,
+): Promise<InvoiceContact[]> {
+  const supabase = getSupabase();
+  let query = supabase
+    .from("invoice_contacts")
+    .select("*")
+    .order("name", { ascending: true });
+  if (kind) query = query.eq("kind", kind);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((row) =>
+    normalizeInvoiceContact(row as InvoiceContact),
+  );
+}
+
+export async function createInvoiceContact(input: {
+  kind: InvoiceContactKind;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+}): Promise<InvoiceContact> {
+  const supabase = getSupabase();
+  const payload = {
+    kind: input.kind,
+    name: input.name.trim(),
+    email: input.email?.trim() ?? "",
+    phone: input.phone?.trim() ?? "",
+    address: input.address?.trim() ?? "",
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabase
+    .from("invoice_contacts")
+    .insert(payload)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return normalizeInvoiceContact(data as InvoiceContact);
+}
+
+export async function updateInvoiceContact(input: {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+}): Promise<InvoiceContact> {
+  const supabase = getSupabase();
+  const payload = {
+    name: input.name.trim(),
+    email: input.email?.trim() ?? "",
+    phone: input.phone?.trim() ?? "",
+    address: input.address?.trim() ?? "",
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabase
+    .from("invoice_contacts")
+    .update(payload)
+    .eq("id", input.id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return normalizeInvoiceContact(data as InvoiceContact);
+}
+
+export async function deleteInvoiceContact(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("invoice_contacts")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(error.message || "Failed to delete contact");
 }

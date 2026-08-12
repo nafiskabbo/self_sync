@@ -169,6 +169,19 @@ export type WeightLog = {
   updated_at: string;
 };
 
+export type InvoiceContactKind = "from" | "client";
+
+export type InvoiceContact = {
+  id: string;
+  kind: InvoiceContactKind;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   fajr: { start: true, mid: true, mid_time: null, before_end_30: true },
   dhuhr: { start: true, mid: true, mid_time: null, before_end_30: true },

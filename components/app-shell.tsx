@@ -7,6 +7,7 @@ import {
   CalendarClock,
   CalendarDays,
   CloudUpload,
+  FileText,
   Gift,
   Globe2,
   LogOut,
@@ -19,15 +20,58 @@ import {
 import { useState } from "react";
 import { useSync } from "@/components/sync-provider";
 
-const LINKS = [
+const MAIN_LINKS = [
   { href: "/", label: "Today", icon: Sun },
   { href: "/history", label: "History", icon: CalendarDays },
   { href: "/converter", label: "Clock", icon: Globe2 },
   { href: "/upcoming", label: "Upcoming", icon: CalendarClock },
   { href: "/personal", label: "Personal", icon: UserRound },
   { href: "/rewards", label: "Rewards", icon: Gift },
+] as const;
+
+const TOOL_LINKS = [
+  { href: "/tools/invoice", label: "Invoice", icon: FileText },
+] as const;
+
+const FOOTER_LINKS = [
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
+
+function isActive(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+  onNavigate,
+  compact,
+}: {
+  href: string;
+  label: string;
+  icon: typeof Sun;
+  active: boolean;
+  onNavigate?: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      onClick={onNavigate}
+      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+        active
+          ? "bg-[var(--sidebar-active)] text-white shadow-sm"
+          : "text-[var(--sidebar-muted)] hover:bg-white/10 hover:text-[var(--sidebar-text)]"
+      } ${compact ? "px-2.5" : ""}`}
+    >
+      <Icon size={18} strokeWidth={2.2} />
+      <span>{label}</span>
+    </Link>
+  );
+}
 
 function NavLinks({
   onNavigate,
@@ -40,37 +84,63 @@ function NavLinks({
 
   return (
     <nav className={`flex ${compact ? "flex-row gap-1" : "flex-col gap-1"}`}>
-      {LINKS.map((link) => {
-        const active =
-          link.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(link.href);
-        const Icon = link.icon;
-            return (
-              <Link
+      {MAIN_LINKS.map((link) => (
+        <NavLink
+          key={link.href}
+          {...link}
+          active={isActive(pathname, link.href)}
+          onNavigate={onNavigate}
+          compact={compact}
+        />
+      ))}
+
+      {!compact ? (
+        <div className="pt-3">
+          <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--sidebar-muted)]">
+            Tools
+          </p>
+          <div className="flex flex-col gap-1">
+            {TOOL_LINKS.map((link) => (
+              <NavLink
                 key={link.href}
-                href={link.href}
-                prefetch={false}
-                onClick={onNavigate}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  active
-                    ? "bg-[var(--sidebar-active)] text-white shadow-sm"
-                    : "text-[var(--sidebar-muted)] hover:bg-white/10 hover:text-[var(--sidebar-text)]"
-                } ${compact ? "px-2.5" : ""}`}
-              >
-            <Icon size={18} strokeWidth={2.2} />
-            <span>{link.label}</span>
-          </Link>
-        );
-      })}
+                {...link}
+                active={isActive(pathname, link.href)}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        TOOL_LINKS.map((link) => (
+          <NavLink
+            key={link.href}
+            {...link}
+            active={isActive(pathname, link.href)}
+            onNavigate={onNavigate}
+            compact
+          />
+        ))
+      )}
+
+      {FOOTER_LINKS.map((link) => (
+        <NavLink
+          key={link.href}
+          {...link}
+          active={isActive(pathname, link.href)}
+          onNavigate={onNavigate}
+          compact={compact}
+        />
+      ))}
     </nav>
   );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { dirty, syncing, syncNow, status, lastSync } = useSync();
   const [open, setOpen] = useState(false);
+  const wide = pathname.startsWith("/tools");
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -167,7 +237,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <aside className="absolute inset-y-0 left-0 flex w-[min(18rem,86vw)] flex-col bg-[var(--sidebar)] px-4 py-5 text-[var(--sidebar-text)] shadow-2xl">
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Image src="/logo.svg" alt="" width={36} height={36} className="rounded-xl" />
+                <Image
+                  src="/logo.svg"
+                  alt=""
+                  width={36}
+                  height={36}
+                  className="rounded-xl"
+                />
                 <span className="font-[family-name:var(--font-display)] text-xl">
                   SelfSync
                 </span>
@@ -195,7 +271,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <div className="min-w-0 flex-1">
-        <main className="mx-auto w-full max-w-4xl px-3 py-3 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+        <main
+          className={`mx-auto w-full px-3 py-3 sm:px-5 sm:py-5 lg:px-6 lg:py-6 ${
+            wide ? "max-w-6xl" : "max-w-4xl"
+          }`}
+        >
           {children}
         </main>
       </div>

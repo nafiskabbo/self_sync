@@ -7,6 +7,7 @@ Private personal daily tracker for namaz, optional roja, habits, diary logging, 
 - **Today** — check namaz + habits, optional roja, notes, live prayer strip
 - **History** — month calendar, edit any day
 - **Rewards** — week/month goals, custom reward text, prayer streak, claim flow
+- **Tools** — invoice generator (paper PDF) with saved From / Client lists
 - **Settings** — geolocation, all prayer calculation methods, notification prefs, push enable
 - **Cross-device** — local-first cache + Sync button / every 5 minutes to Supabase
 - **Asr method** — Shafi or Hanafi in Settings
@@ -26,7 +27,11 @@ npm install
 ### 2. Supabase
 
 1. Create a project at [supabase.com](https://supabase.com)
-2. Open **SQL Editor** and run [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql)
+2. Open **SQL Editor** and run migrations in order:
+   - [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql)
+   - [`supabase/migrations/002_learnt_asr_points.sql`](supabase/migrations/002_learnt_asr_points.sql)
+   - [`supabase/migrations/003_personal_health.sql`](supabase/migrations/003_personal_health.sql)
+   - [`supabase/migrations/004_invoice_contacts.sql`](supabase/migrations/004_invoice_contacts.sql)
 3. Copy **Project URL** and **service_role** key (Settings → API)
 
 ### 3. Environment

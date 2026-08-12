@@ -4,14 +4,18 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
 import {
   claimReward,
+  createInvoiceContact,
   deleteAllDailyEntries,
   deleteAllRewardClaims,
   deleteDailyEntries,
+  deleteInvoiceContact,
   deleteWeightLog,
   getRewardClaim,
   getSettings,
   listDailyEntries,
+  listInvoiceContacts,
   listWeightLogs,
+  updateInvoiceContact,
   updateSettings,
   upsertDailyEntry,
   upsertWeightLog,
@@ -34,6 +38,8 @@ import {
   PRAYERS,
   type ClearHistoryScope,
   type DailyEntry,
+  type InvoiceContact,
+  type InvoiceContactKind,
   type NotificationPrefs,
   type Settings,
 } from "@/lib/types";
@@ -336,6 +342,76 @@ export async function fetchWeightLogs(
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Failed to load weights",
+    };
+  }
+}
+
+const invoiceContactSchema = z.object({
+  kind: z.enum(["from", "client"]),
+  name: z.string().trim().min(1).max(200),
+  email: z.string().trim().max(200).optional().default(""),
+  phone: z.string().trim().max(80).optional().default(""),
+  address: z.string().trim().max(1000).optional().default(""),
+});
+
+export async function saveInvoiceContact(input: {
+  kind: InvoiceContactKind;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  id?: string;
+}): Promise<
+  | { ok: true; contact: InvoiceContact }
+  | { ok: false; error: string }
+> {
+  await requireAuth();
+  try {
+    const parsed = invoiceContactSchema.parse(input);
+    const contact = input.id
+      ? await updateInvoiceContact({ id: input.id, ...parsed })
+      : await createInvoiceContact(parsed);
+    revalidatePath("/tools/invoice");
+    return { ok: true, contact };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to save contact",
+    };
+  }
+}
+
+export async function removeInvoiceContact(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAuth();
+  if (!id) return { ok: false, error: "Missing id" };
+  try {
+    await deleteInvoiceContact(id);
+    revalidatePath("/tools/invoice");
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to delete contact",
+    };
+  }
+}
+
+export async function fetchInvoiceContacts(
+  kind?: InvoiceContactKind,
+): Promise<
+  | { ok: true; contacts: InvoiceContact[] }
+  | { ok: false; error: string }
+> {
+  await requireAuth();
+  try {
+    const contacts = await listInvoiceContacts(kind);
+    return { ok: true, contacts };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to load contacts",
     };
   }
 }
