@@ -11,14 +11,15 @@ import {
   type Settings,
   type WeightLog,
 } from "@/lib/types";
+import { normalizePrayerMosqueFlags } from "@/lib/prayer-completion";
 
 function normalizeEntry(row: DailyEntry | null, date: string): DailyEntry {
   if (!row) return emptyDailyEntry(date);
-  return {
+  return normalizePrayerMosqueFlags({
     ...emptyDailyEntry(date),
     ...row,
     learnt_note: row.learnt_note ?? null,
-  };
+  });
 }
 
 function normalizeSettings(row: Settings): Settings {

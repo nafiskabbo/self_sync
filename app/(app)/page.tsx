@@ -24,6 +24,7 @@ export default async function TodayPage() {
     label: string;
     time: string;
     done: boolean;
+    mosque: boolean;
     isNext: boolean;
   }> = [];
   let nextLabel: string | null = null;
@@ -42,6 +43,7 @@ export default async function TodayPage() {
       label: prayerDisplayName(w.prayer),
       time: formatPrayerTime(w.start, settings.timezone),
       done: Boolean(entry[w.prayer]),
+      mosque: Boolean(entry[`${w.prayer}_mosque` as keyof typeof entry]),
       isNext: next?.prayer === w.prayer,
     }));
     if (next) {
@@ -89,6 +91,7 @@ export default async function TodayPage() {
             field: p,
             label: prayerDisplayName(p),
             points: pts[p],
+            mosquePoints: pts[`${p}_mosque`],
           })),
           {
             field: "roja" as const,

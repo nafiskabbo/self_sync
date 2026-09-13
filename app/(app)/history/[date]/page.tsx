@@ -50,6 +50,7 @@ export default async function HistoryDayPage({
             field: p,
             label: prayerDisplayName(p),
             points: pts[p],
+            mosquePoints: pts[`${p}_mosque`],
           })),
           {
             field: "roja" as const,

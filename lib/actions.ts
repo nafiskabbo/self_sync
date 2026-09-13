@@ -87,6 +87,11 @@ const entrySchema = z.object({
   asr: z.boolean(),
   maghrib: z.boolean(),
   isha: z.boolean(),
+  fajr_mosque: z.boolean().default(false),
+  dhuhr_mosque: z.boolean().default(false),
+  asr_mosque: z.boolean().default(false),
+  maghrib_mosque: z.boolean().default(false),
+  isha_mosque: z.boolean().default(false),
   roja: z.boolean(),
   new_things_learnt: z.boolean(),
   learnt_note: z.string().nullable(),
@@ -138,7 +143,15 @@ export async function syncToCloud(payload: {
 
   const syncedDates: string[] = [];
   for (const raw of payload.entries ?? []) {
-    const entry = entrySchema.parse(raw);
+    const parsed = entrySchema.parse(raw);
+    const entry = {
+      ...parsed,
+      fajr_mosque: parsed.fajr && parsed.fajr_mosque,
+      dhuhr_mosque: parsed.dhuhr && parsed.dhuhr_mosque,
+      asr_mosque: parsed.asr && parsed.asr_mosque,
+      maghrib_mosque: parsed.maghrib && parsed.maghrib_mosque,
+      isha_mosque: parsed.isha && parsed.isha_mosque,
+    };
     const points = computePoints(entry, settings.points_per_item);
     await upsertDailyEntry({
       ...entry,

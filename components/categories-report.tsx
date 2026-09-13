@@ -15,7 +15,18 @@ import {
   parseDateOnly,
   startOfIsoWeek,
 } from "@/lib/points";
-import type { DailyEntry, EntryBoolField } from "@/lib/types";
+import {
+  emptyDailyEntry,
+  PRAYERS,
+  type DailyEntry,
+  type EntryBoolField,
+  type PrayerName,
+} from "@/lib/types";
+import {
+  getPrayerCompletion,
+  isPrayerName,
+  prayerChartValue,
+} from "@/lib/prayer-completion";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -196,7 +207,13 @@ export function CategoriesReport({
       const entry = mergedMap.get(date);
       return {
         date,
-        counts: cat.items.map((item) => (entry?.[item] ? 1 : 0)),
+        counts: cat.items.map((item) =>
+          isPrayerName(item)
+            ? prayerChartValue(entry, item)
+            : entry?.[item]
+              ? 1
+              : 0,
+        ),
       };
     });
 
@@ -243,30 +260,49 @@ export function CategoriesReport({
   );
 
   const records = useMemo(() => {
-    const rows = allDays
-      .map((date) => ({ date, entry: mergedMap.get(date) }))
-      .filter(
-        (row): row is { date: string; entry: DailyEntry } =>
-          Boolean(row.entry && cat.items.some((i) => Boolean(row.entry![i]))),
-      );
+    // Include every day in range, including days where the category totals 0.
+    const rows = allDays.map((date) => ({
+      date,
+      entry: mergedMap.get(date) ?? emptyDailyEntry(date),
+    }));
     return rows.reverse();
-  }, [allDays, mergedMap, cat]);
+  }, [allDays, mergedMap]);
 
   const itemStats = useMemo(
     () =>
       cat.items.map((item) => {
         let count = 0;
+        let mosqueCount = 0;
         let perfect = 0;
+        const prayerItems = cat.items.filter(isPrayerName) as PrayerName[];
         for (const row of records) {
-          if (row.entry[item]) count += 1;
-          if (cat.items.every((i) => row.entry[i])) perfect += 1;
+          if (isPrayerName(item)) {
+            const state = getPrayerCompletion(row.entry, item);
+            if (state !== "none") count += 1;
+            if (state === "mosque") mosqueCount += 1;
+            if (
+              prayerItems.length > 0 &&
+              prayerItems.every(
+                (p) => getPrayerCompletion(row.entry, p) === "mosque",
+              )
+            ) {
+              perfect += 1;
+            }
+          } else {
+            if (row.entry[item]) count += 1;
+            if (cat.items.every((i) => Boolean(row.entry[i]))) perfect += 1;
+          }
         }
         return {
           item,
           count,
+          mosqueCount,
           perfect,
           pct: allDays.length
             ? Math.round((count / allDays.length) * 100)
+            : 0,
+          mosquePct: allDays.length
+            ? Math.round((mosqueCount / allDays.length) * 100)
             : 0,
         };
       }),
@@ -387,7 +423,7 @@ export function CategoriesReport({
 
       <section className="space-y-2">
         <div className="flex flex-wrap gap-2">
-          {itemStats.map(({ item, count, pct }) => {
+          {itemStats.map(({ item, count, pct, mosqueCount, mosquePct }) => {
             const meta = ITEM_META[item];
             const Icon = meta.icon;
             return (
@@ -408,19 +444,28 @@ export function CategoriesReport({
                   </span>
                 ) : null}
                 <span className="ml-auto pl-1 text-sm font-semibold tabular-nums">
-                  {count}
+                  {isPrayerName(item) ? (
+                    <>
+                      {count}
+                      <span className="text-[var(--muted)]"> · {mosqueCount}</span>
+                    </>
+                  ) : (
+                    count
+                  )}
                 </span>
                 <span className="text-[11px] text-[var(--muted)] tabular-nums">
-                  {pct}%
+                  {isPrayerName(item) ? `${pct}% / ${mosquePct}%` : `${pct}%`}
                 </span>
               </div>
             );
           })}
         </div>
         <p className="text-xs text-[var(--muted)]">
-          {records.length} tracked {records.length === 1 ? "day" : "days"} ·{" "}
-          {perfectDays} perfect {perfectDays === 1 ? "day" : "days"} (all{" "}
-          {cat.items.length} {cat.items.length === 1 ? "item" : "items"} done)
+          {records.length} {records.length === 1 ? "day" : "days"} ·{" "}
+          {perfectDays} perfect {perfectDays === 1 ? "day" : "days"}
+          {category === "namaz"
+            ? " (all five prayers at mosque)"
+            : ` (all ${cat.items.length} ${cat.items.length === 1 ? "item" : "items"} done)`}
         </p>
       </section>
 
@@ -543,20 +588,44 @@ export function CategoriesReport({
                       </Link>
                     </td>
                     {cat.items.map((item) => {
-                      const checked = Boolean(entry[item]);
                       const meta = ITEM_META[item];
+                      const prayerState = isPrayerName(item)
+                        ? getPrayerCompletion(entry, item)
+                        : null;
+                      const checked = prayerState
+                        ? prayerState !== "none"
+                        : Boolean(entry[item]);
+                      const full = prayerState
+                        ? prayerState === "mosque"
+                        : checked;
+                      const label = prayerState
+                        ? prayerState === "mosque"
+                          ? "At mosque"
+                          : prayerState === "done"
+                            ? "Prayed"
+                            : "Not done"
+                        : checked
+                          ? "Done"
+                          : "Not done";
                       return (
                         <td
                           key={item}
                           className="px-2 py-2 text-center"
-                          title={`${meta.label}: ${checked ? "Done" : "Not done"}`}
+                          title={`${meta.label}: ${label}`}
                         >
-                          {checked ? (
+                          {full ? (
                             <span
                               className="inline-flex h-6 w-6 items-center justify-center rounded-lg text-white"
                               style={{ background: meta.color }}
                             >
                               <Check size={13} strokeWidth={3} />
+                            </span>
+                          ) : checked ? (
+                            <span
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-lg text-white"
+                              style={{ background: meta.color }}
+                            >
+                              <Minus size={13} strokeWidth={2.2} />
                             </span>
                           ) : (
                             <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-[var(--line)] text-[var(--muted)]">

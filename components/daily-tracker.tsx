@@ -10,6 +10,13 @@ import {
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { PointsHero } from "@/components/points-hero";
 import { useSync } from "@/components/sync-provider";
+import {
+  cyclePrayerCompletion,
+  getPrayerCompletion,
+  isPrayerName,
+  prayerCompletionPatch,
+  type PrayerCompletion,
+} from "@/lib/prayer-completion";
 import { computePoints } from "@/lib/points";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -21,6 +28,7 @@ import {
   Languages,
   Lightbulb,
   Mic2,
+  Minus,
   Moon,
   NotebookPen,
   Save,
@@ -32,6 +40,7 @@ type CheckItem = {
   label: string;
   hint?: string;
   points?: number;
+  mosquePoints?: number;
   tone?: "default" | "observe" | "optional";
 };
 
@@ -64,6 +73,88 @@ const TRACKER_ICONS: Record<EntryBoolField, LucideIcon> = {
   public_speaking: Mic2,
   brainstorming: Brain,
 };
+
+function prayerPointsLabel(item: CheckItem, state: PrayerCompletion): string {
+  const base = item.points ?? 0;
+  const mosque = item.mosquePoints ?? 0;
+  if (state === "mosque") return `+${base + mosque}`;
+  if (state === "done") return `+${base}`;
+  return mosque > 0 ? `+${base} / +${base + mosque}` : `+${base}`;
+}
+
+function PrayerCheckRow({
+  item,
+  state,
+  onCycle,
+}: {
+  item: CheckItem;
+  state: PrayerCompletion;
+  onCycle: () => void;
+}) {
+  const Icon = TRACKER_ICONS[item.field] ?? BookOpen;
+  const active = state !== "none";
+  const full = state === "mosque";
+
+  return (
+    <button
+      type="button"
+      onClick={onCycle}
+      aria-label={`${item.label}: ${
+        state === "none"
+          ? "not done"
+          : state === "done"
+            ? "prayed"
+            : "prayed at mosque"
+      }. Tap to cycle.`}
+      className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition sm:gap-3 sm:px-3 ${
+        full
+          ? "border-[var(--moss)]/30 bg-[color-mix(in_oklab,var(--moss)_12%,white)]"
+          : active
+            ? "border-[var(--moss)]/25 bg-[color-mix(in_oklab,var(--moss)_8%,white)]"
+            : "border-[var(--line)] bg-[var(--surface)] hover:bg-white"
+      }`}
+    >
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9 ${
+          active
+            ? "bg-[var(--moss)] text-white"
+            : "bg-[var(--paper-2)] text-[var(--moss-deep)]"
+        }`}
+      >
+        <Icon size={16} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium leading-tight text-[var(--ink)] sm:text-[15px]">
+          {item.label}
+        </span>
+        <span className="block text-[11px] leading-tight text-[var(--muted)]">
+          {state === "mosque"
+            ? "At mosque"
+            : state === "done"
+              ? "Prayed · tap again for mosque"
+              : "Tap: prayed · again: mosque"}
+        </span>
+      </span>
+      <span className="shrink-0 rounded-full bg-[var(--saffron-soft)]/50 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[var(--saffron)] sm:px-2 sm:text-xs">
+        {prayerPointsLabel(item, state)}
+      </span>
+      <span
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 sm:h-7 sm:w-7 sm:rounded-lg ${
+          active
+            ? "animate-settle border-[var(--moss)] bg-[var(--moss)] text-white"
+            : "border-[var(--muted)]/40"
+        }`}
+        aria-hidden
+      >
+        {full ? (
+          <Check size={12} strokeWidth={3} />
+        ) : active ? (
+          <Minus size={12} strokeWidth={3} />
+        ) : null}
+      </span>
+    </button>
+  );
+}
 
 function CheckRow({
   item,
@@ -141,6 +232,7 @@ function Section({
   items,
   entry,
   onToggle,
+  onCyclePrayer,
   footer,
   className = "",
 }: {
@@ -148,6 +240,7 @@ function Section({
   items: CheckItem[];
   entry: DailyEntry;
   onToggle: (field: EntryBoolField) => void;
+  onCyclePrayer?: (field: EntryBoolField) => void;
   footer?: React.ReactNode;
   className?: string;
 }) {
@@ -159,12 +252,22 @@ function Section({
       <div className="space-y-1.5">
         {items.map((item) => (
           <div key={item.field}>
-            <CheckRow
-              item={item}
-              checked={Boolean(entry[item.field])}
-              onToggle={() => onToggle(item.field)}
-            />
-            {footer && item.field === "new_things_learnt" && entry.new_things_learnt
+            {isPrayerName(item.field) && onCyclePrayer ? (
+              <PrayerCheckRow
+                item={item}
+                state={getPrayerCompletion(entry, item.field)}
+                onCycle={() => onCyclePrayer(item.field)}
+              />
+            ) : (
+              <CheckRow
+                item={item}
+                checked={Boolean(entry[item.field])}
+                onToggle={() => onToggle(item.field)}
+              />
+            )}
+            {footer &&
+            item.field === "new_things_learnt" &&
+            entry.new_things_learnt
               ? footer
               : null}
           </div>
@@ -226,6 +329,7 @@ export function DailyTracker({
   }
 
   function onToggle(field: EntryBoolField) {
+    if (isPrayerName(field)) return;
     const nextValue = !entry[field];
     const patch: Partial<DailyEntry> = { [field]: nextValue };
     if (field === "new_things_learnt" && !nextValue) {
@@ -233,6 +337,15 @@ export function DailyTracker({
       setLearntNote("");
     }
     persist(patch);
+    if (showSaveButton) {
+      setSaveMsg("Saved on this device · tap Save to sync");
+    }
+  }
+
+  function onCyclePrayer(field: EntryBoolField) {
+    if (!isPrayerName(field)) return;
+    const next = cyclePrayerCompletion(getPrayerCompletion(entry, field));
+    persist(prayerCompletionPatch(field, next));
     if (showSaveButton) {
       setSaveMsg("Saved on this device · tap Save to sync");
     }
@@ -302,6 +415,7 @@ export function DailyTracker({
         items={namazItems}
         entry={entry}
         onToggle={onToggle}
+        onCyclePrayer={onCyclePrayer}
       />
 
       <div className="grid gap-4 sm:gap-5 lg:grid-cols-2">

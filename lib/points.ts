@@ -2,6 +2,7 @@ import {
   DEFAULT_POINTS_PER_ITEM,
   OBSERVE_ITEMS,
   POSITIVE_ITEMS,
+  PRAYER_MOSQUE_ITEMS,
   type DailyEntry,
   type PointItem,
   type PointsPerItem,
@@ -13,6 +14,12 @@ export function computePoints(
 ): number {
   let total = 0;
   for (const key of POSITIVE_ITEMS) {
+    if (entry[key]) {
+      const pts = pointsPerItem[key] ?? DEFAULT_POINTS_PER_ITEM[key] ?? 0;
+      total += pts;
+    }
+  }
+  for (const key of PRAYER_MOSQUE_ITEMS) {
     if (entry[key]) {
       const pts = pointsPerItem[key] ?? DEFAULT_POINTS_PER_ITEM[key] ?? 0;
       total += pts;

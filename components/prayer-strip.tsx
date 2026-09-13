@@ -3,6 +3,7 @@ type PrayerChip = {
   label: string;
   time: string;
   done: boolean;
+  mosque?: boolean;
   isNext: boolean;
 };
 
@@ -30,16 +31,18 @@ export function PrayerStrip({
           <div
             key={chip.prayer}
             className={`rounded-lg px-0.5 py-2 text-center sm:rounded-xl sm:px-1.5 sm:py-2.5 ${
-              chip.done
-                ? "bg-[var(--moss)] text-white"
-                : chip.isNext
-                  ? "bg-[var(--saffron)] text-white ring-2 ring-[var(--saffron-soft)]"
-                  : "bg-white/70 text-[var(--ink-soft)]"
+              chip.mosque
+                ? "bg-[var(--moss-deep)] text-white ring-2 ring-[var(--moss)]/40"
+                : chip.done
+                  ? "bg-[var(--moss)] text-white"
+                  : chip.isNext
+                    ? "bg-[var(--saffron)] text-white ring-2 ring-[var(--saffron-soft)]"
+                    : "bg-white/70 text-[var(--ink-soft)]"
             }`}
           >
             <p
               className={`text-[9px] uppercase tracking-wide sm:text-[10px] ${
-                chip.done || chip.isNext ? "text-white/85" : "text-[var(--muted)]"
+                chip.done || chip.mosque || chip.isNext ? "text-white/85" : "text-[var(--muted)]"
               }`}
             >
               {chip.label.slice(0, 3)}

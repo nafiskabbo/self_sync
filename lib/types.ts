@@ -35,7 +35,21 @@ export const ENTRY_BOOL_FIELDS = [
 
 export type EntryBoolField = (typeof ENTRY_BOOL_FIELDS)[number];
 
-export const POINT_ITEMS = [...POSITIVE_ITEMS, ...OBSERVE_ITEMS] as const;
+export const PRAYER_MOSQUE_ITEMS = [
+  "fajr_mosque",
+  "dhuhr_mosque",
+  "asr_mosque",
+  "maghrib_mosque",
+  "isha_mosque",
+] as const;
+
+export type PrayerMosqueItem = (typeof PRAYER_MOSQUE_ITEMS)[number];
+
+export const POINT_ITEMS = [
+  ...POSITIVE_ITEMS,
+  ...PRAYER_MOSQUE_ITEMS,
+  ...OBSERVE_ITEMS,
+] as const;
 export type PointItem = (typeof POINT_ITEMS)[number];
 
 export const ASR_MADHABS = [
@@ -114,6 +128,11 @@ export type DailyEntry = {
   asr: boolean;
   maghrib: boolean;
   isha: boolean;
+  fajr_mosque: boolean;
+  dhuhr_mosque: boolean;
+  asr_mosque: boolean;
+  maghrib_mosque: boolean;
+  isha_mosque: boolean;
   roja: boolean;
   new_things_learnt: boolean;
   learnt_note: string | null;
@@ -192,10 +211,15 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
 
 export const DEFAULT_POINTS_PER_ITEM: Record<PointItem, number> = {
   fajr: 5,
+  fajr_mosque: 5,
   dhuhr: 5,
+  dhuhr_mosque: 5,
   asr: 5,
+  asr_mosque: 5,
   maghrib: 5,
+  maghrib_mosque: 5,
   isha: 5,
+  isha_mosque: 5,
   roja: 10,
   new_things_learnt: 10,
   diary_logged: 5,
@@ -216,6 +240,11 @@ export function emptyDailyEntry(date: string): DailyEntry {
     asr: false,
     maghrib: false,
     isha: false,
+    fajr_mosque: false,
+    dhuhr_mosque: false,
+    asr_mosque: false,
+    maghrib_mosque: false,
+    isha_mosque: false,
     roja: false,
     new_things_learnt: false,
     learnt_note: null,

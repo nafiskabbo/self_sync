@@ -1,7 +1,13 @@
 "use client";
 
 import { DEFAULT_CONVERTER_ZONES } from "@/lib/timezones";
-import type { DailyEntry, Settings, UpcomingEvent } from "@/lib/types";
+import { normalizePrayerMosqueFlags } from "@/lib/prayer-completion";
+import {
+  emptyDailyEntry,
+  type DailyEntry,
+  type Settings,
+  type UpcomingEvent,
+} from "@/lib/types";
 
 const ENTRY_PREFIX = "selfsync:entry:";
 const SETTINGS_KEY = "selfsync:settings";
@@ -32,7 +38,13 @@ function writeJson(key: string, value: unknown) {
 }
 
 export function getLocalEntry(date: string): DailyEntry | null {
-  return readJson<DailyEntry>(`${ENTRY_PREFIX}${date}`);
+  const raw = readJson<DailyEntry>(`${ENTRY_PREFIX}${date}`);
+  if (!raw) return null;
+  return normalizePrayerMosqueFlags({
+    ...emptyDailyEntry(raw.date),
+    ...raw,
+    learnt_note: raw.learnt_note ?? null,
+  });
 }
 
 export function setLocalEntry(entry: DailyEntry, markDirty = true) {
@@ -163,12 +175,12 @@ export function mergeEntry(
   server: DailyEntry,
   local: DailyEntry | null,
 ): DailyEntry {
-  if (!local) return server;
+  if (!local) return normalizePrayerMosqueFlags(server);
   const s = Date.parse(server.updated_at);
   const l = Date.parse(local.updated_at);
-  if (Number.isNaN(l)) return server;
-  if (Number.isNaN(s) || l >= s) return local;
-  return server;
+  if (Number.isNaN(l)) return normalizePrayerMosqueFlags(server);
+  if (Number.isNaN(s) || l >= s) return normalizePrayerMosqueFlags(local);
+  return normalizePrayerMosqueFlags(server);
 }
 
 export function mergeSettings(
